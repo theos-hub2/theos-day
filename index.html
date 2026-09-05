@@ -202,23 +202,23 @@
 
     /* ── PROGRESS ── */
     .progress-block {
-      margin-bottom: 20px;
+      margin-bottom: 16px;
     }
     .progress-header {
       display: flex;
       justify-content: space-between;
       align-items: baseline;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
     }
     .progress-label {
-      font-size: 0.75rem;
+      font-size: 0.7rem;
       font-weight: 600;
       letter-spacing: 0.12em;
       text-transform: uppercase;
-      color: var(--green);
+      color: var(--muted);
     }
     .progress-pct {
-      font-size: 1.8rem;
+      font-size: 0.86rem;
       font-weight: 700;
       color: var(--green);
       line-height: 1;
@@ -246,14 +246,16 @@
     }
     .bar-track {
       width: 100%;
-      height: 14px;
+      height: 9px;
       background: var(--off-white);
-      border: 2px solid var(--green);
+      border: 1.5px solid var(--border);
       position: relative;
       overflow: hidden;
+      border-radius: 5px;
     }
     .bar-fill {
       height: 100%;
+      border-radius: 5px;
       transition: width 0.5s cubic-bezier(.34,1.2,.64,1), background 0.5s ease;
     }
     .bar-fill.celebrating {
@@ -473,6 +475,7 @@
   flex-direction: column;
   gap: 10px;
 }
+.res-list:not(:empty) { margin-bottom: 16px; }
 .res-item {
   background: var(--off-white);
   border: 1.5px solid var(--border);
@@ -563,9 +566,11 @@
   background: var(--white);
   border: 1.5px solid var(--border);
   overflow: hidden;
+  border-radius: 5px;
 }
 .res-bar-fill {
   height: 100%;
+  border-radius: 5px;
   transition: width 0.5s cubic-bezier(.34,1.2,.64,1), background 0.5s ease;
 }
 .res-onetime-row {
@@ -796,6 +801,186 @@
   margin-bottom: 12px;
   line-height: 1.4;
 }
+
+/* ── COMPACT TOP PROGRESS ── */
+.top-progress { margin-bottom: 16px; }
+.top-progress:empty { display: none; }
+.top-progress .tp-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 6px;
+}
+.top-progress .tp-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.top-progress .tp-pct {
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+.top-progress .tp-track {
+  width: 100%;
+  height: 9px;
+  background: var(--off-white);
+  border: 1.5px solid var(--border);
+  border-radius: 5px;
+  overflow: hidden;
+}
+.top-progress .tp-fill {
+  height: 100%;
+  border-radius: 5px;
+  transition: width 0.5s cubic-bezier(.34,1.2,.64,1), background 0.5s ease;
+}
+
+/* ── COLLAPSIBLE AIMS ── */
+.aims-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: none;
+  border-top: 1.5px solid var(--border);
+  padding: 15px 2px;
+  cursor: pointer;
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+}
+.aims-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--green);
+  font-family: 'EB Garamond', serif;
+}
+.aims-meta {
+  flex: 1;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted);
+  font-family: 'EB Garamond', serif;
+}
+.aims-chev {
+  font-size: 1.35rem;
+  line-height: 1;
+  color: var(--green);
+  transition: transform 0.22s ease;
+  transform: rotate(0deg);
+}
+.aims-chev.open { transform: rotate(90deg); }
+.aims-body { padding-top: 4px; }
+.aims-body.collapsed { display: none; }
+
+/* ── WEEK TAB ── */
+.week-header { padding-top: 18px; }
+.week-range {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-top: 2px;
+  margin-bottom: 16px;
+}
+.week-strip {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  background: var(--off-white);
+  border: 2px solid var(--green);
+  padding: 10px 8px;
+  margin-bottom: 18px;
+}
+.week-cell {
+  min-height: 62px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 5px 2px;
+  border: 1.5px solid transparent;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.week-cell .wc-name {
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--green);
+  opacity: 0.7;
+}
+.week-cell .wc-num {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--ink-mid);
+  line-height: 1;
+}
+.week-cell .wc-pct {
+  font-size: 0.58rem;
+  font-weight: 700;
+  line-height: 1;
+}
+.week-cell.today { background: var(--green); }
+.week-cell.today .wc-name,
+.week-cell.today .wc-num { color: var(--white); opacity: 1; }
+.week-cell.selected { border-color: var(--green); }
+.week-cell.future { opacity: 0.45; }
+
+.dayview-slot:empty { display: none; }
+
+/* ── GOAL ADD FORM (week / month / year) ── */
+.goal-add {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+.goal-add input[type="text"] {
+  width: 100%;
+  padding: 11px 14px;
+  border: 2px solid var(--green);
+  background: var(--white);
+  color: var(--ink);
+  font-family: 'EB Garamond', serif;
+  font-weight: 500;
+  outline: none;
+  transition: all 0.2s;
+}
+.goal-add input[type="text"]:focus { background: var(--off-white); border-color: var(--green-mid); }
+.goal-add input[type="text"]::placeholder { color: var(--muted); font-weight: 400; }
+.goal-add select {
+  flex: 1;
+  min-width: 0;
+  padding: 11px 8px;
+  border: 2px solid var(--green);
+  background: var(--white);
+  color: var(--ink);
+  font-family: 'EB Garamond', serif;
+  font-weight: 600;
+  outline: none;
+  cursor: pointer;
+}
+.goal-add input[type="number"] {
+  width: 82px;
+  flex-shrink: 0;
+  padding: 11px 6px;
+  border: 2px solid var(--green);
+  background: var(--white);
+  color: var(--ink);
+  font-family: 'EB Garamond', serif;
+  font-weight: 500;
+  outline: none;
+  text-align: center;
+}
+.goal-add .btn-add { flex-shrink: 0; }
 
     @keyframes fadeIn {
       from { opacity: 0; transform: translateY(4px); }
@@ -1375,45 +1560,86 @@
     </div>
 
     <!-- CALENDAR -->
-    <div class="panel" id="panel-calendar">
+    <!-- THIS WEEK -->
+    <div class="panel" id="panel-week">
+      <div class="week-header">
+        <div class="screen-title">This Week</div>
+        <div class="week-range" id="weekRange"></div>
+      </div>
+
+      <div class="top-progress" id="topProgress-week"></div>
+
+      <div class="week-strip" id="weekStrip"></div>
+
+      <div class="dayview-slot" id="weekDaySlot"></div>
+
+      <button class="aims-toggle" onclick="toggleAims('week')">
+        <span class="aims-label">This Week's Aims</span>
+        <span class="aims-meta" id="aimsMeta-week"></span>
+        <span class="aims-chev" id="aimsChev-week">&rsaquo;</span>
+      </button>
+      <div class="aims-body" id="aimsBody-week">
+        <div id="goalList-week" class="res-list"></div>
+        <div class="goal-add" id="goalAdd-week">
+          <input type="text" id="goalInput-week" placeholder="Aim for this week…"/>
+          <div class="res-add-line2">
+            <select id="goalType-week" onchange="syncTargetVisibility('week')">
+              <option value="recurring">Recurring</option>
+              <option value="onetime">One-time</option>
+            </select>
+            <input type="number" id="goalTarget-week" placeholder="Target" min="1" value="5"/>
+            <button class="btn btn-add" onclick="addGoal('week')">Add</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MONTH -->
+    <div class="panel" id="panel-month">
       <div class="cal-header">
         <button class="cal-nav" onclick="changeMonth(-1)" aria-label="Previous month">&lsaquo;</button>
         <span class="cal-title" id="calMonthLabel"></span>
         <button class="cal-nav" onclick="changeMonth(1)" aria-label="Next month">&rsaquo;</button>
       </div>
+      <div class="top-progress" id="topProgress-month"></div>
+
       <div class="cal-grid" id="calGrid"></div>
-      <div class="day-view" id="dayView" style="display:none">
-        <div class="day-view-title" id="dayViewTitle"></div>
-        <div class="add-row" id="calAddRow">
-          <div class="add-row-top">
-            <input type="text" id="calTaskInput" placeholder="Task title…"/>
-            <button class="btn btn-add" onclick="addCalTask()">Add</button>
+
+      <div class="dayview-slot" id="monthDaySlot"></div>
+
+      <button class="aims-toggle" onclick="toggleAims('month')">
+        <span class="aims-label" id="monthAimsLabel">This Month's Aims</span>
+        <span class="aims-meta" id="aimsMeta-month"></span>
+        <span class="aims-chev" id="aimsChev-month">&rsaquo;</span>
+      </button>
+      <div class="aims-body" id="aimsBody-month">
+        <div id="goalList-month" class="res-list"></div>
+        <div class="goal-add" id="goalAdd-month">
+          <input type="text" id="goalInput-month" placeholder="Aim for this month…"/>
+          <div class="res-add-line2">
+            <select id="goalType-month" onchange="syncTargetVisibility('month')">
+              <option value="recurring">Recurring</option>
+              <option value="onetime">One-time</option>
+            </select>
+            <input type="number" id="goalTarget-month" placeholder="Target" min="1" value="4"/>
+            <button class="btn btn-add" onclick="addGoal('month')">Add</button>
           </div>
-          <div class="autocomplete-dropdown" id="calAutocompleteDropdown"></div>
-          <textarea id="calTaskDetail" placeholder="Optional: add details here…" rows="1"></textarea>
         </div>
-        <div class="task-list" id="calTaskList"></div>
       </div>
     </div>
 
-    <!-- RESOLUTIONS -->
-    <div class="panel" id="panel-resolutions">
-      <div class="screen-title">Resolutions</div>
-      <div class="section-label">2026</div>
-
-      <div class="res-add-row">
-        <input type="text" id="resInput" placeholder="Resolution title…"/>
-        <div class="res-add-line2">
-          <select id="resType">
-            <option value="recurring">Recurring</option>
-            <option value="onetime">One-time</option>
-          </select>
-          <input type="number" id="resTarget" placeholder="Target" min="1" value="12"/>
-          <button class="btn btn-add" onclick="addResolution()">Add</button>
+    <!-- SHARED DAY VIEW — moved into whichever slot is active -->
+    <div class="day-view" id="dayView" style="display:none">
+      <div class="day-view-title" id="dayViewTitle"></div>
+      <div class="add-row" id="calAddRow">
+        <div class="add-row-top">
+          <input type="text" id="calTaskInput" placeholder="Task title…"/>
+          <button class="btn btn-add" onclick="addCalTask()">Add</button>
         </div>
+        <div class="autocomplete-dropdown" id="calAutocompleteDropdown"></div>
+        <textarea id="calTaskDetail" placeholder="Optional: add details here…" rows="1"></textarea>
       </div>
-
-      <div id="resolutionList" class="res-list"></div>
+      <div class="task-list" id="calTaskList"></div>
     </div>
 
     <!-- BANNERS -->
@@ -1431,11 +1657,8 @@
           <div class="chess-loading">Loading rating…</div>
         </div>
       </div>
-    </div>
 
-    <!-- SYNC -->
-    <div class="panel" id="panel-more">
-      <div class="screen-title">Sync</div>
+      <div class="section-label" style="margin-top:26px">Sync</div>
       <p class="sync-blurb">Pushes a snapshot to a secret GitHub gist so the Scriptable widget can read it. Your token is stored on this phone only.</p>
 
       <div class="sync-block">
@@ -1461,23 +1684,45 @@
       </div>
     </div>
 
+    <!-- RESOLUTIONS -->
+    <div class="panel" id="panel-resolutions">
+      <div class="screen-title">Resolutions</div>
+      <div class="section-label">2026</div>
+
+      <div class="top-progress" id="topProgress-year"></div>
+
+      <div id="goalList-year" class="res-list"></div>
+
+      <div class="goal-add" id="goalAdd-year">
+        <input type="text" id="goalInput-year" placeholder="Resolution title…"/>
+        <div class="res-add-line2">
+          <select id="goalType-year" onchange="syncTargetVisibility('year')">
+            <option value="recurring">Recurring</option>
+            <option value="onetime">One-time</option>
+          </select>
+          <input type="number" id="goalTarget-year" placeholder="Target" min="1" value="12"/>
+          <button class="btn btn-add" onclick="addGoal('year')">Add</button>
+        </div>
+      </div>
+    </div>
+
   </div><!-- end screens -->
 
   <nav class="tabbar">
     <button class="tabbtn active" onclick="switchTab('today',this)" aria-label="Today">
       <svg viewBox="0 0 24 24"><path d="M4 6.5h16M4 12h16M4 17.5h16"/><circle cx="9" cy="6.5" r="2.4"/><circle cx="15" cy="17.5" r="2.4"/></svg>
     </button>
-    <button class="tabbtn" onclick="switchTab('calendar',this)" aria-label="Calendar">
-      <svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M3.5 9.8h17M8 3v4M16 3v4"/></svg>
+    <button class="tabbtn" onclick="switchTab('week',this)" aria-label="This week">
+      <svg viewBox="0 0 24 24"><path d="M4 15.5v3M8 11v7.5M12 13.5v5M16 8v10.5M20 12v6.5"/><path d="M3 4.5h18"/></svg>
     </button>
-    <button class="tabbtn" onclick="switchTab('resolutions',this)" aria-label="Resolutions">
-      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.4"/><circle cx="12" cy="12" r="0.9"/></svg>
+    <button class="tabbtn" onclick="switchTab('month',this)" aria-label="Month">
+      <svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M3.5 9.8h17M8 3v4M16 3v4"/></svg>
     </button>
     <button class="tabbtn" onclick="switchTab('banners',this)" aria-label="Banners">
       <svg viewBox="0 0 24 24"><path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M16 5.5h2.5V8a3 3 0 0 1-3 3M8 5.5H5.5V8a3 3 0 0 0 3 3"/><path d="M12 13v3.5M9 20.5h6M10 20.5c0-2 1-4 2-4s2 2 2 4"/></svg>
     </button>
-    <button class="tabbtn" onclick="switchTab('more',this)" aria-label="Sync">
-      <svg viewBox="0 0 24 24"><path d="M20 11.5a8 8 0 0 0-14-4.4M4 12.5a8 8 0 0 0 14 4.4"/><path d="M6 3.2v4h4M18 20.8v-4h-4"/></svg>
+    <button class="tabbtn" onclick="switchTab('resolutions',this)" aria-label="Resolutions">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.4"/><circle cx="12" cy="12" r="0.9"/></svg>
     </button>
   </nav>
 
@@ -2083,8 +2328,9 @@
     document.getElementById('panel-'+name).classList.add('active');
     el.classList.add('active');
     window.scrollTo(0,0);
-    if(name==='calendar')renderCalendar();
-    if(name==='resolutions')renderResolutions();
+    if(name==='week')renderWeek();
+    if(name==='month')renderCalendar();
+    if(name==='resolutions')renderGoals('year');
     if(name==='banners')renderStreaks();
   }
 
@@ -2134,10 +2380,20 @@ if (dayData && dayData.tasks && dayData.tasks.length > 0) {
 }
 
 el.innerHTML = content;
-      el.onclick=()=>{selKey=key;renderCalendar();renderDayView(key);};
+      el.onclick=()=>{openDay(key,'monthDaySlot');renderCalendar();};
       grid.appendChild(el);
     }
-    if(selKey)renderDayView(selKey);
+    if(selKey){
+      document.getElementById('monthDaySlot').appendChild(document.getElementById('dayView'));
+      renderDayView(selKey);
+    }
+
+    // monthly aims follow the displayed month
+    const now=new Date();
+    const isThisMonth=(calYear===now.getFullYear()&&calMonth===now.getMonth());
+    document.getElementById('monthAimsLabel').textContent=
+      isThisMonth?"This Month's Aims":`${months[calMonth]} Aims`;
+    renderGoals('month');
   }
 
   function renderDayView(key){
@@ -2244,232 +2500,322 @@ el.innerHTML = content;
     if(key===todayKey)renderToday();
   }
 
-  // ── RESOLUTIONS ──
-  function loadResolutions() {
-    try { return JSON.parse(localStorage.getItem('theosResolutions2026') || '[]'); }
+  // ── GOAL LISTS (week / month / year) ──
+  // One engine, three scopes. Week and month keys include the period, so a new
+  // week or month automatically starts blank.
+
+  function ymd(d) {
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+
+  // Sunday-start week, identified by that Sunday's date
+  function weekStartOf(date) {
+    const d = new Date(date);
+    d.setHours(0,0,0,0);
+    d.setDate(d.getDate() - d.getDay());
+    return d;
+  }
+
+  const GOAL_SCOPES = {
+    week:  { store: () => 'theosGoals-week-' + ymd(weekStartOf(new Date())) },
+    month: { store: () => `theosGoals-month-${calYear}-${String(calMonth+1).padStart(2,'0')}` },
+    year:  { store: () => 'theosResolutions2026' }
+  };
+
+  function loadGoals(scope) {
+    try { return JSON.parse(localStorage.getItem(GOAL_SCOPES[scope].store()) || '[]'); }
     catch { return []; }
   }
-  function saveResolutions(res) {
-    localStorage.setItem('theosResolutions2026', JSON.stringify(res));
+  function saveGoals(scope, arr) {
+    localStorage.setItem(GOAL_SCOPES[scope].store(), JSON.stringify(arr));
     queueSync();
   }
 
-  function addResolution() {
-    const inp = document.getElementById('resInput');
-    const type = document.getElementById('resType').value;
-    const targetInp = document.getElementById('resTarget');
+  function syncTargetVisibility(scope) {
+    const type = document.getElementById('goalType-' + scope);
+    const target = document.getElementById('goalTarget-' + scope);
+    if (!type || !target) return;
+    target.style.display = type.value === 'recurring' ? 'block' : 'none';
+  }
+
+  function addGoal(scope) {
+    const inp = document.getElementById('goalInput-' + scope);
+    const type = document.getElementById('goalType-' + scope).value;
+    const targetInp = document.getElementById('goalTarget-' + scope);
     const title = inp.value.trim();
     if (!title) return;
-    
-    const res = loadResolutions();
+
+    const arr = loadGoals(scope);
     if (type === 'recurring') {
-      const target = parseInt(targetInp.value) || 12;
-      res.push({ title, type: 'recurring', current: 0, target, done: false, history: [] });
+      const target = parseInt(targetInp.value) || 1;
+      arr.push({ title, type: 'recurring', current: 0, target, done: false, history: [] });
     } else {
-      res.push({ title, type: 'onetime', done: false, history: [] });
+      arr.push({ title, type: 'onetime', done: false, history: [] });
     }
-    saveResolutions(res);
+    saveGoals(scope, arr);
     inp.value = '';
-    renderResolutions();
+    renderGoals(scope);
   }
 
-  function deleteResolution(i) {
-    const res = loadResolutions();
-    res.splice(i, 1);
-    saveResolutions(res);
-    renderResolutions();
+  function deleteGoal(scope, i) {
+    const arr = loadGoals(scope);
+    arr.splice(i, 1);
+    saveGoals(scope, arr);
+    renderGoals(scope);
   }
 
-  function toggleOnetimeRes(i) {
-    const res = loadResolutions();
-    res[i].done = !res[i].done;
-    saveResolutions(res);
-    renderResolutions();
+  function toggleGoal(scope, i) {
+    const arr = loadGoals(scope);
+    arr[i].done = !arr[i].done;
+    saveGoals(scope, arr);
+    renderGoals(scope);
   }
 
-  function adjustRecurring(i, delta) {
-    const res = loadResolutions();
-    const r = res[i];
-    r.current = Math.max(0, Math.min(r.target, r.current + delta));
-    r.done = r.current >= r.target;
-    saveResolutions(res);
-    renderResolutions();
+  function adjustGoal(scope, i, delta) {
+    const arr = loadGoals(scope);
+    const g = arr[i];
+    g.current = Math.max(0, Math.min(g.target, g.current + delta));
+    g.done = g.current >= g.target;
+    saveGoals(scope, arr);
+    renderGoals(scope);
   }
 
-  // Show the evolve form for a completed resolution
-  let evolveIndex = null;
-  function showEvolveForm(i) {
-    evolveIndex = i;
-    renderResolutions();
-  }
-  function cancelEvolve() {
-    evolveIndex = null;
-    renderResolutions();
+  // Evolve — raise the bar on a finished goal, old one becomes a subgoal
+  let evolveState = { scope: null, index: null };
+
+  function showEvolveForm(scope, i) {
+    evolveState = { scope, index: i };
+    renderGoals(scope);
   }
 
-  function submitEvolve(i) {
-    const res = loadResolutions();
-    const r = res[i];
-    const newTitle = document.getElementById('evolveTitle').value.trim();
+  function submitEvolve(scope, i) {
+    const arr = loadGoals(scope);
+    const g = arr[i];
+    const titleEl = document.getElementById('evolveTitle');
+    const newTitle = titleEl ? titleEl.value.trim() : '';
     if (!newTitle) return;
 
-    const evolveTargetEl = document.getElementById('evolveTarget');
-    const newTarget = evolveTargetEl ? (parseInt(evolveTargetEl.value) || r.target) : 0;
+    const targetEl = document.getElementById('evolveTarget');
+    const newTarget = targetEl ? (parseInt(targetEl.value) || g.target) : 0;
 
-    // Move current goal into history
-    if (!r.history) r.history = [];
-    if (r.type === 'recurring') {
-      r.history.push({ title: r.title, target: r.target, current: r.current });
+    if (!g.history) g.history = [];
+    if (g.type === 'recurring') {
+      g.history.push({ title: g.title, target: g.target, current: g.current });
     } else {
-      r.history.push({ title: r.title });
+      g.history.push({ title: g.title });
     }
 
-    // Set new goal
-    r.title = newTitle;
-    r.done = false;
-    if (r.type === 'recurring') {
-      r.target = newTarget;
-      r.current = 0;
+    g.title = newTitle;
+    g.done = false;
+    if (g.type === 'recurring') {
+      g.target = newTarget;
+      g.current = 0;
     }
 
-    evolveIndex = null;
-    saveResolutions(res);
-    renderResolutions();
+    evolveState = { scope: null, index: null };
+    saveGoals(scope, arr);
+    renderGoals(scope);
   }
 
-  function renderResolutions() {
-    const res = loadResolutions();
-    const list = document.getElementById('resolutionList');
+  function renderGoals(scope) {
+    const arr = loadGoals(scope);
+    const list = document.getElementById('goalList-' + scope);
+    if (!list) return;
     list.innerHTML = '';
 
-    // Show/hide target input based on type selection
-    const typeSelect = document.getElementById('resType');
-    const targetInput = document.getElementById('resTarget');
-    typeSelect.onchange = () => {
-      targetInput.style.display = typeSelect.value === 'recurring' ? 'block' : 'none';
-    };
-    targetInput.style.display = typeSelect.value === 'recurring' ? 'block' : 'none';
+    syncTargetVisibility(scope);
 
-    if (res.length === 0) {
-      list.innerHTML = '<div class="empty-state"><span class="e-icon">✦</span><p>No resolutions yet — add one above</p></div>';
+    // summary next to the collapsible header
+    const meta = document.getElementById('aimsMeta-' + scope);
+    if (meta) {
+      meta.textContent = arr.length
+        ? arr.filter(g => g.done).length + '/' + arr.length
+        : '';
+    }
+    applyAimsState(scope);
+
+    if (arr.length === 0) {
+      const top = document.getElementById('topProgress-' + scope);
+      if (top) top.innerHTML = '';
+      // nothing in the list — the add form sits straight under the header
       return;
     }
 
-    // Overall progress
-    const totalItems = res.length;
-    const completedItems = res.filter(r => r.done).length;
-    const overallPct = Math.round((completedItems / totalItems) * 100);
-    const overallColor = getProgressColor(overallPct);
+    const total = arr.length;
+    const completed = arr.filter(g => g.done).length;
+    const pct = Math.round((completed / total) * 100);
+    const color = getProgressColor(pct);
 
-    const overallDiv = document.createElement('div');
-    overallDiv.className = 'res-overall';
-    overallDiv.innerHTML = `
-      <div class="res-overall-header">
-        <span class="res-overall-label">Overall Progress</span>
-        <span class="res-overall-pct" style="color:${overallColor}">${completedItems}/${totalItems} — ${overallPct}%</span>
-      </div>
-      <div class="res-bar-track">
-        <div class="res-bar-fill" style="width:${overallPct}%;background:${overallColor}"></div>
-      </div>`;
-    list.appendChild(overallDiv);
+    const LABELS = { week: 'Weekly Aims', month: 'Monthly Aims', year: '2026 Resolutions' };
+    const top = document.getElementById('topProgress-' + scope);
+    if (top) {
+      top.innerHTML = `
+        <div class="tp-head">
+          <span class="tp-label">${LABELS[scope]}</span>
+          <span class="tp-pct" style="color:${color}">${completed}/${total} — ${pct}%</span>
+        </div>
+        <div class="tp-track">
+          <div class="tp-fill" style="width:${pct}%;background:${color}"></div>
+        </div>`;
+    }
 
-    res.forEach((r, i) => {
+    const evolvingHere = evolveState.scope === scope ? evolveState.index : null;
+
+    arr.forEach((g, i) => {
       const el = document.createElement('div');
-      el.className = 'res-item' + (r.done ? ' completed' : '');
-      const historyArr = r.history || [];
+      el.className = 'res-item' + (g.done ? ' completed' : '');
+      const past = g.history || [];
+      let html = '';
 
-      if (r.type === 'recurring') {
-        const pct = Math.round((r.current / r.target) * 100);
-        const color = getProgressColor(pct);
-        let html = `
+      if (g.type === 'recurring') {
+        const p = Math.round((g.current / g.target) * 100);
+        const c = getProgressColor(p);
+        html += `
           <div class="res-item-header">
             <div>
-              <span class="res-item-title">${escHtml(r.title)}</span>
+              <span class="res-item-title">${escHtml(g.title)}</span>
               <span class="res-type-tag">Recurring</span>
             </div>
             <div class="res-item-actions">
-              <button class="res-btn" onclick="adjustRecurring(${i},-1)">−</button>
-              <button class="res-btn" onclick="adjustRecurring(${i},1)">+</button>
-              <button class="res-btn-del" onclick="deleteResolution(${i})">✕</button>
+              <button class="res-btn" onclick="adjustGoal('${scope}',${i},-1)">−</button>
+              <button class="res-btn" onclick="adjustGoal('${scope}',${i},1)">+</button>
+              <button class="res-btn-del" onclick="deleteGoal('${scope}',${i})">✕</button>
             </div>
           </div>
           <div class="res-progress-info">
-            <span>${r.current} / ${r.target}</span>
-            <span class="res-progress-pct" style="color:${color}">${pct}%</span>
+            <span>${g.current} / ${g.target}</span>
+            <span class="res-progress-pct" style="color:${c}">${p}%</span>
           </div>
           <div class="res-bar-track">
-            <div class="res-bar-fill" style="width:${pct}%;background:${color}"></div>
+            <div class="res-bar-fill" style="width:${p}%;background:${c}"></div>
           </div>`;
-
-        // Show evolve button or form when completed
-        if (r.done && evolveIndex !== i) {
-          html += `<button class="res-evolve-btn" onclick="showEvolveForm(${i})">↑ Set New Goal</button>`;
-        }
-        if (evolveIndex === i) {
-          html += `
-            <div class="res-evolve-form">
-              <input type="text" id="evolveTitle" placeholder="New goal title…"/>
-              <input type="number" id="evolveTarget" placeholder="${r.target}" min="1" value="${r.target}"/>
-              <button onclick="submitEvolve(${i})">Go</button>
-            </div>`;
-        }
-
-        // Show past goals
-        if (historyArr.length > 0) {
-          html += '<div class="res-history">';
-          [...historyArr].reverse().forEach(h => {
-            html += `<div class="res-history-item">
-              <span>${escHtml(h.title)}</span>
-              <span class="res-history-target">${h.target ? h.current + '/' + h.target : ''}</span>
-            </div>`;
-          });
-          html += '</div>';
-        }
-
-        el.innerHTML = html;
       } else {
-        // One-time resolution
-        let html = `
+        html += `
           <div class="res-item-header">
             <div class="res-onetime-row">
-              <div class="res-cb" onclick="toggleOnetimeRes(${i})">${r.done ? '✓' : ''}</div>
-              <span class="res-item-title">${escHtml(r.title)}</span>
+              <div class="res-cb" onclick="toggleGoal('${scope}',${i})">${g.done ? '✓' : ''}</div>
+              <span class="res-item-title">${escHtml(g.title)}</span>
               <span class="res-type-tag">One-time</span>
             </div>
             <div class="res-item-actions">
-              <button class="res-btn-del" onclick="deleteResolution(${i})">✕</button>
+              <button class="res-btn-del" onclick="deleteGoal('${scope}',${i})">✕</button>
             </div>
           </div>`;
-
-        // One-time can also evolve
-        if (r.done && evolveIndex !== i) {
-          html += `<button class="res-evolve-btn" onclick="showEvolveForm(${i})">↑ Set New Goal</button>`;
-        }
-        if (evolveIndex === i) {
-          html += `
-            <div class="res-evolve-form">
-              <input type="text" id="evolveTitle" placeholder="New goal title…"/>
-              <button onclick="submitEvolve(${i})">Go</button>
-            </div>`;
-        }
-
-        // Show past goals
-        if (historyArr.length > 0) {
-          html += '<div class="res-history">';
-          [...historyArr].reverse().forEach(h => {
-            html += `<div class="res-history-item">
-              <span>${escHtml(h.title)}</span>
-            </div>`;
-          });
-          html += '</div>';
-        }
-
-        el.innerHTML = html;
       }
 
+      if (g.done && evolvingHere !== i) {
+        html += `<button class="res-evolve-btn" onclick="showEvolveForm('${scope}',${i})">↑ Set New Goal</button>`;
+      }
+      if (evolvingHere === i) {
+        html += `
+          <div class="res-evolve-form">
+            <input type="text" id="evolveTitle" placeholder="New goal…"/>
+            ${g.type === 'recurring' ? `<input type="number" id="evolveTarget" min="1" value="${g.target}"/>` : ''}
+            <button onclick="submitEvolve('${scope}',${i})">Go</button>
+          </div>`;
+      }
+
+      if (past.length > 0) {
+        html += '<div class="res-history">';
+        [...past].reverse().forEach(h => {
+          html += `<div class="res-history-item">
+            <span>${escHtml(h.title)}</span>
+            <span class="res-history-target">${h.target ? h.current + '/' + h.target : ''}</span>
+          </div>`;
+        });
+        html += '</div>';
+      }
+
+      el.innerHTML = html;
       list.appendChild(el);
     });
   }
+
+  // ── WEEK STRIP ──
+
+  function openDay(key, slotId) {
+    const dv = document.getElementById('dayView');
+    // tapping the already-selected day closes it
+    if (selKey === key) {
+      selKey = null;
+      dv.style.display = 'none';
+      return;
+    }
+    selKey = key;
+    document.getElementById(slotId).appendChild(dv);
+    renderDayView(key);
+  }
+
+  // ── COLLAPSIBLE AIMS ──
+  function aimsOpen(scope) {
+    return localStorage.getItem('theosAimsOpen-' + scope) !== 'closed';
+  }
+
+  function toggleAims(scope) {
+    const open = aimsOpen(scope);
+    localStorage.setItem('theosAimsOpen-' + scope, open ? 'closed' : 'open');
+    applyAimsState(scope);
+  }
+
+  function applyAimsState(scope) {
+    const body = document.getElementById('aimsBody-' + scope);
+    const chev = document.getElementById('aimsChev-' + scope);
+    if (!body) return;
+    const open = aimsOpen(scope);
+    body.classList.toggle('collapsed', !open);
+    if (chev) chev.classList.toggle('open', open);
+  }
+
+  function renderWeek() {
+    const start = weekStartOf(new Date());
+    const end = new Date(start);
+    end.setDate(end.getDate() + 6);
+
+    const fmt = { month: 'short', day: 'numeric' };
+    document.getElementById('weekRange').textContent =
+      `${start.toLocaleDateString('en-US', fmt)} — ${end.toLocaleDateString('en-US', fmt)}`.toUpperCase();
+
+    const names = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+    const data = loadData();
+    const strip = document.getElementById('weekStrip');
+    strip.innerHTML = '';
+
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(start);
+      d.setDate(d.getDate() + i);
+      const key = ymd(d);
+
+      const cell = document.createElement('div');
+      cell.className = 'week-cell';
+      if (key === todayKey) cell.classList.add('today');
+      if (key === selKey) cell.classList.add('selected');
+      if (key > todayKey) cell.classList.add('future');
+
+      let inner = `<div class="wc-name">${names[i]}</div>
+                   <div class="wc-num">${d.getDate()}</div>`;
+
+      const day = data[key];
+      if (day && day.tasks && day.tasks.length) {
+        const done = day.tasks.filter(t => t.done).length;
+        const p = Math.round((done / day.tasks.length) * 100);
+        inner += `<div class="wc-pct" style="color:${key === todayKey ? '#fff' : getProgressColor(p)}">${p}%</div>`;
+      }
+
+      cell.innerHTML = inner;
+      cell.onclick = () => { openDay(key, 'weekDaySlot'); renderWeek(); };
+      strip.appendChild(cell);
+    }
+
+    const endKey = ymd(end);
+    const startKey = ymd(start);
+    if (selKey && selKey >= startKey && selKey <= endKey) {
+      document.getElementById('weekDaySlot').appendChild(document.getElementById('dayView'));
+      renderDayView(selKey);
+    }
+
+    renderGoals('week');
+  }
+
 
   function launchConfetti(){
     const c=document.getElementById('confetti');
@@ -2570,7 +2916,9 @@ el.innerHTML = content;
       .sort((a, b) => b.count - a.count)
       .slice(0, 4);
 
-    const res = loadResolutions();
+    const res = loadGoals('year');
+    const wk = loadGoals('week');
+    const mo = loadGoals('month');
 
     return {
       updated: new Date().toISOString(),
@@ -2583,6 +2931,14 @@ el.innerHTML = content;
       resolutions: {
         done: res.filter(r => r.done).length,
         total: res.length
+      },
+      week: {
+        done: wk.filter(r => r.done).length,
+        total: wk.length
+      },
+      month: {
+        done: mo.filter(r => r.done).length,
+        total: mo.length
       }
     };
   }
