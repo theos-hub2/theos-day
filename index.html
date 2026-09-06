@@ -1038,6 +1038,86 @@
 }
 .gym-edit-nums input[type="text"] { flex: 1; width: auto; }
 
+.gym-variants {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.gym-variant {
+  padding: 7px 12px;
+  border: 1.5px solid var(--border);
+  background: transparent;
+  color: var(--ink-mid);
+  font-family: 'EB Garamond', serif;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.18s;
+}
+.gym-variant.active {
+  background: var(--green);
+  border-color: var(--green);
+  color: var(--white);
+}
+.gym-suggest {
+  border: 1.5px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 3px 3px;
+  overflow: hidden;
+}
+.gym-suggest:empty { display: none; border: none; }
+.gym-suggest-item {
+  padding: 12px 14px;
+  font-size: 0.92rem;
+  color: var(--ink);
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  background: var(--off-white);
+}
+.gym-suggest-item:last-child { border-bottom: none; }
+.gym-suggest-item:active { background: var(--green); color: var(--white); }
+.gym-var-input {
+  width: 100%;
+  margin-top: 6px;
+  padding: 8px 10px;
+  border: 1.5px solid var(--border);
+  background: var(--white);
+  color: var(--ink-mid);
+  font-family: 'EB Garamond', serif;
+  font-size: 0.82rem;
+  outline: none;
+  border-radius: 3px;
+}
+.gym-addex {
+  display: flex;
+  gap: 8px;
+  margin-top: 20px;
+}
+.gym-addex input {
+  flex: 1;
+  min-width: 0;
+  padding: 11px 12px;
+  border: 1.5px solid var(--green);
+  background: var(--white);
+  color: var(--ink);
+  font-family: 'EB Garamond', serif;
+  font-weight: 500;
+  outline: none;
+  border-radius: 3px;
+}
+.gym-addex input::placeholder { color: var(--muted); font-weight: 400; }
+.gym-addex .btn-add { flex-shrink: 0; border-radius: 3px; }
+.gym-note {
+  font-size: 0.76rem;
+  color: var(--muted);
+  line-height: 1.5;
+  margin-top: 8px;
+  font-style: italic;
+}
+.gym-drop { border-color: var(--border); color: var(--muted); }
+
 /* ── COMPACT TOP PROGRESS ── */
 .top-progress { margin-bottom: 16px; }
 .top-progress:empty { display: none; }
@@ -1848,8 +1928,8 @@
     <!-- THIS WEEK -->
     <div class="panel" id="panel-week">
       <div class="week-header">
-        <div class="screen-title">This Week</div>
-        <div class="week-range" id="weekRange"></div>
+        <div class="screen-title" id="weekTitle">This Week</div>
+        <div class="week-range gym-week-nav" id="weekRange"></div>
       </div>
 
       <div class="top-progress" id="topProgress-week"></div>
@@ -1859,7 +1939,7 @@
       <div class="dayview-slot" id="weekDaySlot"></div>
 
       <button class="aims-toggle" onclick="toggleAims('week')">
-        <span class="aims-label">This Week's Aims</span>
+        <span class="aims-label" id="aimsLabel-week">This Week's Aims</span>
         <span class="aims-meta" id="aimsMeta-week"></span>
         <span class="aims-chev" id="aimsChev-week">&rsaquo;</span>
       </button>
@@ -2765,8 +2845,11 @@ el.innerHTML = content;
     return d;
   }
 
+  // which week the Week tab is showing
+  let weekViewStart = null;
+
   const GOAL_SCOPES = {
-    week:  { store: () => 'theosGoals-week-' + ymd(weekStartOf(new Date())) },
+    week:  { store: () => 'theosGoals-week-' + (weekViewStart || ymd(weekStartOf(new Date()))) },
     month: { store: () => `theosGoals-month-${calYear}-${String(calMonth+1).padStart(2,'0')}` },
     year:  { store: () => 'theosResolutions2026' }
   };
@@ -3015,14 +3098,35 @@ el.innerHTML = content;
     if (chev) chev.classList.toggle('open', open);
   }
 
+  function weekShift(delta) {
+    const d = new Date((weekViewStart || ymd(weekStartOf(new Date()))) + 'T00:00:00');
+    d.setDate(d.getDate() + delta * 7);
+    weekViewStart = ymd(d);
+    renderWeek();
+  }
+
+  function weekToThis() {
+    weekViewStart = ymd(weekStartOf(new Date()));
+    renderWeek();
+  }
+
   function renderWeek() {
-    const start = weekStartOf(new Date());
+    if (!weekViewStart) weekViewStart = ymd(weekStartOf(new Date()));
+    const thisWeek = ymd(weekStartOf(new Date()));
+    const start = new Date(weekViewStart + 'T00:00:00');
     const end = new Date(start);
     end.setDate(end.getDate() + 6);
 
     const fmt = { month: 'short', day: 'numeric' };
-    document.getElementById('weekRange').textContent =
-      `${start.toLocaleDateString('en-US', fmt)} — ${end.toLocaleDateString('en-US', fmt)}`.toUpperCase();
+    const isCurrent = weekViewStart === thisWeek;
+
+    document.getElementById('weekTitle').textContent = isCurrent ? 'This Week' : 'Week of ' + start.toLocaleDateString('en-US', fmt);
+    document.getElementById('weekRange').innerHTML =
+      `<button class="cal-nav" onclick="weekShift(-1)" aria-label="Previous week">&lsaquo;</button>
+       <span class="gym-week-label">${start.toLocaleDateString('en-US', fmt)} — ${end.toLocaleDateString('en-US', fmt)}</span>
+       ${isCurrent ? '' : '<button class="gym-today-btn" onclick="weekToThis()">This week</button>'}
+       <button class="cal-nav" onclick="weekShift(1)" aria-label="Next week">&rsaquo;</button>`;
+    document.getElementById('aimsLabel-week').textContent = isCurrent ? "This Week's Aims" : "Aims";
 
     const names = ['Su','Mo','Tu','We','Th','Fr','Sa'];
     const data = loadData();
@@ -3143,43 +3247,45 @@ el.innerHTML = content;
   // Sun=0 … Sat=6. Tuesday and Saturday are rest.
   const GYM_SCHEDULE = { 0:'Upper', 1:'Lower', 3:'Push', 4:'Pull', 5:'Legs' };
 
+  // `variants` means one routine entry, several ways of doing it. Each variant
+  // keeps its own history, because 40kg on a barbell isn't 40kg on dumbbells.
   const DEFAULT_ROUTINE = {
     Upper: [
-      { name:'Barbell or DB Bench Press', sets:4, reps:'6-10' },
-      { name:'Barbell or DB Row',         sets:4, reps:'6-10' },
-      { name:'Seated DB Shoulder Press',  sets:3, reps:'8-12' },
-      { name:'Lat Pulldown',              sets:3, reps:'10-12' },
-      { name:'Pec Deck',                  sets:3, reps:'12-15' },
-      { name:'DB Curl',                   sets:3, reps:'10-12' },
-      { name:'Tricep Pushdown',           sets:3, reps:'12-15' }
+      { name:'Bench Press',              sets:4, reps:'6-10',  variants:['Barbell','DB','Machine'] },
+      { name:'Row',                      sets:4, reps:'6-10',  variants:['Barbell','DB','Chest-Supported'] },
+      { name:'Seated DB Shoulder Press', sets:3, reps:'8-12' },
+      { name:'Lat Pulldown',             sets:3, reps:'10-12' },
+      { name:'Pec Deck',                 sets:3, reps:'12-15' },
+      { name:'DB Curl',                  sets:3, reps:'10-12' },
+      { name:'Tricep Pushdown',          sets:3, reps:'12-15' }
     ],
     Lower: [
-      { name:'Back Squat',           sets:4, reps:'6-10' },
-      { name:'Romanian Deadlift',    sets:3, reps:'8-10' },
-      { name:'Walking Lunge',        sets:3, reps:'10-12' },
-      { name:'Leg Curl',             sets:3, reps:'10-12' },
-      { name:'Standing Calf Raise',  sets:4, reps:'12-15' },
-      { name:'Weighted Plank',       sets:3, reps:'max' }
+      { name:'Back Squat',          sets:4, reps:'6-10', variants:['Barbell','Smith','Leg Press'] },
+      { name:'Romanian Deadlift',   sets:3, reps:'8-10' },
+      { name:'Walking Lunge',       sets:3, reps:'10-12' },
+      { name:'Leg Curl',            sets:3, reps:'10-12' },
+      { name:'Standing Calf Raise', sets:4, reps:'12-15' },
+      { name:'Weighted Plank',      sets:3, reps:'max' }
     ],
     Push: [
-      { name:'Incline Barbell or DB Press', sets:4, reps:'6-10' },
-      { name:'Overhead Press',              sets:3, reps:'8-12' },
-      { name:'Cable Fly',                   sets:3, reps:'12-15' },
-      { name:'DB Lateral Raise',            sets:3, reps:'12-15' },
-      { name:'Tricep Pushdown',             sets:3, reps:'12-15' },
-      { name:'Overhead Tricep Extension',   sets:3, reps:'12-15' }
+      { name:'Incline Press',             sets:4, reps:'6-10',  variants:['Barbell','DB'] },
+      { name:'Overhead Press',            sets:3, reps:'8-12',  variants:['Barbell','DB'] },
+      { name:'Cable Fly',                 sets:3, reps:'12-15' },
+      { name:'DB Lateral Raise',          sets:3, reps:'12-15' },
+      { name:'Tricep Pushdown',           sets:3, reps:'12-15' },
+      { name:'Overhead Tricep Extension', sets:3, reps:'12-15' }
     ],
     Pull: [
-      { name:'Barbell or DB Row', sets:4, reps:'6-10' },
-      { name:'Lat Pulldown',      sets:4, reps:'8-12' },
-      { name:'Seated Cable Row',  sets:3, reps:'10-12' },
-      { name:'Face Pull',         sets:3, reps:'12-15' },
-      { name:'DB Curl',           sets:3, reps:'10-12' },
-      { name:'Preacher Curl',     sets:3, reps:'10-12' }
+      { name:'Row',              sets:4, reps:'6-10',  variants:['Barbell','DB','Chest-Supported'] },
+      { name:'Lat Pulldown',     sets:4, reps:'8-12' },
+      { name:'Seated Cable Row', sets:3, reps:'10-12' },
+      { name:'Face Pull',        sets:3, reps:'12-15' },
+      { name:'DB Curl',          sets:3, reps:'10-12' },
+      { name:'Preacher Curl',    sets:3, reps:'10-12' }
     ],
     Legs: [
-      { name:'Deadlift',              sets:4, reps:'5-8' },
-      { name:'Hip Thrust',            sets:3, reps:'10-12' },
+      { name:'Deadlift',              sets:4, reps:'5-8',   variants:['Barbell','Trap Bar','Smith'] },
+      { name:'Hip Thrust',            sets:3, reps:'10-12', variants:['Barbell','Machine','Bodyweight'] },
       { name:'Bulgarian Split Squat', sets:3, reps:'10 ea' },
       { name:'Leg Curl',              sets:3, reps:'10-12' },
       { name:'Seated Calf Raise',     sets:4, reps:'15' },
@@ -3187,7 +3293,7 @@ el.innerHTML = content;
     ]
   };
 
-  function slug(s){ return s.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,''); }
+  function slug(s){ return String(s).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,''); }
 
   function loadRoutine(){
     try {
@@ -3203,14 +3309,14 @@ el.innerHTML = content;
   }
   function saveGymLog(l){ localStorage.setItem('theosGymLog', JSON.stringify(l)); queueSync(); }
 
-  // date is the session being viewed/edited; weekStart is the strip on screen
   let gymState = {
     view: 'session',
     date: null,
     weekStart: null,
     workout: null,
     exercise: null,
-    expanded: {}
+    expanded: {},
+    suggest: []
   };
 
   function gymInit(){
@@ -3224,35 +3330,103 @@ el.innerHTML = content;
     return GYM_SCHEDULE[d.getDay()] || null;
   }
 
-  // a logged session wins over the schedule
   function defaultWorkoutFor(dateKey){
     const log = loadGymLog();
-    if (log[dateKey] && log[dateKey].workout) return log[dateKey].workout;
+    const s = log[dateKey];
+    if (s && s.workout && sessionLogged(dateKey)) return s.workout;
     return scheduledFor(dateKey);
   }
 
-  function currentSession(){
-    return loadGymLog()[gymState.date] || null;
-  }
+  function currentSession(){ return loadGymLog()[gymState.date] || null; }
 
   function writeSession(mut){
     const log = loadGymLog();
     const k = gymState.date;
-    if (!log[k]) log[k] = { workout: gymState.workout, exercises:{}, done:false };
+    if (!log[k]) log[k] = { workout: gymState.workout, exercises:{}, variants:{}, done:false };
+    if (!log[k].variants) log[k].variants = {};
+    // snapshot the routine the first time a session is touched, so later routine
+    // edits only affect sessions that haven't been opened yet
+    if (!log[k].plan || log[k].workout !== gymState.workout) {
+      const routine = loadRoutine();
+      log[k].plan = JSON.parse(JSON.stringify(routine[gymState.workout] || []));
+    }
     log[k].workout = gymState.workout;
     mut(log[k]);
     saveGymLog(log);
   }
 
-  // most recent session before the one being edited that contains this exercise
-  function lastEntry(exKey){
+  // ── VARIANTS ──
+  // storage key is the exercise plus its variant, so each keeps its own history
+
+  function exKey(ex, variant){
+    const base = slug(ex.name);
+    const v = variant !== undefined ? variant : chosenVariant(ex);
+    return v ? base + '--' + slug(v) : base;
+  }
+
+  // last variant used for this exercise, else the first option
+  function chosenVariant(ex){
+    if (!ex.variants || !ex.variants.length) return null;
+    const sess = currentSession();
+    const base = slug(ex.name);
+    if (sess && sess.variants && sess.variants[base]) return sess.variants[base];
     const log = loadGymLog();
-    const keys = Object.keys(log).filter(k => k < gymState.date).sort().reverse();
+    const keys = Object.keys(log).filter(k => k <= gymState.date).sort().reverse();
     for (const k of keys) {
-      const sets = log[k].exercises && log[k].exercises[exKey];
-      if (sets && sets.length && sets.some(s => s.r)) return { date:k, sets };
+      const v = log[k].variants && log[k].variants[base];
+      if (v && ex.variants.includes(v)) return v;
     }
-    return null;
+    return ex.variants[0];
+  }
+
+  function pickVariant(base, variant){
+    writeSession(s => { s.variants[base] = variant; });
+    renderGym();
+  }
+
+  function displayName(ex, variant){
+    const v = variant !== undefined ? variant : chosenVariant(ex);
+    return v ? v + ' ' + ex.name : ex.name;
+  }
+
+  // ── SESSION CONTENTS ──
+
+  function sessionPlan(){
+    const sess = currentSession();
+    const routine = loadRoutine();
+    // if the chosen workout no longer matches what the session stored, show the
+    // live routine — the snapshot is rewritten as soon as anything is logged
+    const usePlan = sess && sess.plan && sess.workout === gymState.workout;
+    const base = usePlan ? sess.plan : (routine[gymState.workout] || []);
+    const list = base.slice();
+    if (usePlan && sess.exercises) {
+      const have = new Set();
+      list.forEach(e => {
+        if (e.variants) e.variants.forEach(v => have.add(exKey(e, v)));
+        have.add(exKey(e, null));
+        have.add(slug(e.name));
+      });
+      Object.keys(sess.exercises).forEach(k => {
+        if (!have.has(k) && sess.exercises[k].some(x => x.r)) {
+          list.push({ name: unslug(k), sets: sess.exercises[k].length, reps:'—', extra:true });
+        }
+      });
+    }
+    return list;
+  }
+
+  function unslug(k){
+    const known = allExerciseNames().find(n => slug(n) === k);
+    if (known) return known;
+    return k.replace(/--/g,' ').replace(/-/g,' ').replace(/\b\w/g, c => c.toUpperCase());
+  }
+
+  function allExerciseNames(){
+    const names = new Set();
+    Object.values(DEFAULT_ROUTINE).forEach(l => l.forEach(e => names.add(e.name)));
+    Object.values(loadRoutine()).forEach(l => l.forEach(e => names.add(e.name)));
+    Object.values(loadGymLog()).forEach(s => (s.plan || []).forEach(e => names.add(e.name)));
+    return [...names].sort();
   }
 
   function setsSummary(sets){
@@ -3260,10 +3434,19 @@ el.innerHTML = content;
   }
 
   function sessionLogged(dateKey){
-    const log = loadGymLog();
-    const s = log[dateKey];
+    const s = loadGymLog()[dateKey];
     if (!s || !s.exercises) return false;
     return Object.values(s.exercises).some(sets => sets.some(x => x.r));
+  }
+
+  function lastEntry(key){
+    const log = loadGymLog();
+    const keys = Object.keys(log).filter(k => k < gymState.date).sort().reverse();
+    for (const k of keys) {
+      const sets = log[k].exercises && log[k].exercises[key];
+      if (sets && sets.length && sets.some(s => s.r)) return { date:k, sets };
+    }
+    return null;
   }
 
   // ── NAVIGATION ──
@@ -3279,14 +3462,21 @@ el.innerHTML = content;
     gymState.date = dateKey;
     gymState.workout = defaultWorkoutFor(dateKey);
     gymState.expanded = {};
+    gymState.suggest = [];
     renderGym();
   }
 
-  function gymToday(){
-    gymState.date = getTodayKey();
-    gymState.weekStart = ymd(weekStartOf(new Date()));
-    gymState.workout = defaultWorkoutFor(gymState.date);
+  function gymToday(){ gymPickDay(getTodayKey()); gymState.weekStart = ymd(weekStartOf(new Date())); renderGym(); }
+
+  function pickWorkout(w){
+    // an untouched session shouldn't pin the day to a workout you tapped by mistake
+    if (!sessionLogged(gymState.date)) {
+      const log = loadGymLog();
+      if (log[gymState.date]) { delete log[gymState.date]; saveGymLog(log); }
+    }
+    gymState.workout = (gymState.workout === w) ? null : w;
     gymState.expanded = {};
+    gymState.suggest = [];
     renderGym();
   }
 
@@ -3305,6 +3495,7 @@ el.innerHTML = content;
     const end = new Date(start); end.setDate(end.getDate() + 6);
     const fmt = { month:'short', day:'numeric' };
     const names = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+    const today = getTodayKey();
 
     let h = `<div class="gym-week-nav">
                <button class="cal-nav" onclick="gymWeekShift(-1)" aria-label="Previous week">&lsaquo;</button>
@@ -3318,21 +3509,18 @@ el.innerHTML = content;
       const key = ymd(d);
       let cls = 'week-cell gym-day';
       if (key === gymState.date) cls += ' selected';
-      if (key === getTodayKey()) cls += ' today';
-      if (key > getTodayKey()) cls += ' future';
-      const dot = sessionLogged(key) ? '<span class="gym-dot"></span>' : '';
+      if (key === today) cls += ' today';
+      if (key > today) cls += ' future';
       h += `<div class="${cls}" onclick="gymPickDay('${key}')">
               <div class="wc-name">${names[i]}</div>
               <div class="wc-num">${d.getDate()}</div>
-              ${dot}
+              ${sessionLogged(key) ? '<span class="gym-dot"></span>' : ''}
             </div>`;
     }
-    h += '</div>';
-    return h;
+    return h + '</div>';
   }
 
   function renderGymSession(root){
-    const routine = loadRoutine();
     const sess = currentSession();
     const isToday = gymState.date === getTodayKey();
     const dObj = new Date(gymState.date + 'T00:00:00');
@@ -3361,9 +3549,9 @@ el.innerHTML = content;
       return;
     }
 
-    const list = routine[gymState.workout] || [];
+    const list = sessionPlan();
     const doneCount = list.filter(e => {
-      const s = sess && sess.exercises[slug(e.name)];
+      const s = sess && sess.exercises[exKey(e)];
       return s && s.some(x => x.r);
     }).length;
     const pct = list.length ? Math.round((doneCount/list.length)*100) : 0;
@@ -3378,16 +3566,19 @@ el.innerHTML = content;
           </div>`;
 
     list.forEach(ex => {
-      const key = slug(ex.name);
+      const base = slug(ex.name);
+      const variant = chosenVariant(ex);
+      const key = exKey(ex, variant);
       const sets = (sess && sess.exercises[key]) || [];
       const open = !!gymState.expanded[key];
       const logged = sets.some(s => s.r);
       const prev = lastEntry(key);
+      const label = displayName(ex, variant);
 
       h += `<div class="gym-ex${logged ? ' logged' : ''}">
               <div class="gym-ex-head" onclick="toggleExercise('${key}')">
                 <div class="gym-ex-main">
-                  <div class="gym-ex-name">${escHtml(ex.name)}</div>
+                  <div class="gym-ex-name">${escHtml(label)}</div>
                   <div class="gym-ex-sub">${ex.sets} × ${ex.reps}${
                     logged ? ' · <span class="gym-now">' + setsSummary(sets) + '</span>'
                            : (prev ? ' · last: ' + setsSummary(prev.sets) : '')
@@ -3398,6 +3589,16 @@ el.innerHTML = content;
 
       if (open) {
         h += '<div class="gym-sets">';
+
+        if (ex.variants && ex.variants.length) {
+          h += '<div class="gym-variants">';
+          ex.variants.forEach(v => {
+            h += `<button class="gym-variant${v === variant ? ' active' : ''}"
+                          onclick="pickVariant('${base}','${v.replace(/'/g,"\\'")}')">${escHtml(v)}</button>`;
+          });
+          h += '</div>';
+        }
+
         sets.forEach((s, i) => {
           h += `<div class="gym-set-row">
                   <span class="gym-set-n">${i+1}</span>
@@ -3411,12 +3612,22 @@ el.innerHTML = content;
         });
         h += `<div class="gym-set-actions">
                 <button class="sync-btn" onclick="addSet('${key}')">+ Set</button>
-                <button class="sync-btn" onclick="openExercise('${key}','${escHtml(ex.name).replace(/'/g,"\\'")}')">History</button>
+                <button class="sync-btn" onclick="openExercise('${key}','${escHtml(label).replace(/'/g,"\\'")}')">History</button>
+                <button class="sync-btn gym-drop" onclick="removeSessionExercise('${base}')">Remove</button>
               </div>`;
         h += '</div>';
       }
       h += '</div>';
     });
+
+    h += `<div class="gym-addex">
+            <input type="text" id="gymAddEx" placeholder="Add an exercise to this session…"
+                   autocapitalize="words" spellcheck="false" autocomplete="off"
+                   oninput="gymSuggest(this.value)" onfocus="gymSuggest(this.value)"/>
+            <button class="btn btn-add" onclick="addSessionExercise()">Add</button>
+          </div>
+          <div class="gym-suggest" id="gymSuggestBox"></div>
+          <p class="gym-note">Adding or removing here changes this session only. Use Edit routine to change future ones.</p>`;
 
     const finished = sess && sess.done;
     h += `<button class="gym-finish${finished ? ' done' : ''}" onclick="finishSession()">
@@ -3425,13 +3636,70 @@ el.innerHTML = content;
     h += `<button class="sync-btn gym-edit-btn" onclick="gymGo('edit')">Edit routine</button>`;
 
     root.innerHTML = h;
+    renderSuggestBox();
   }
 
-  function pickWorkout(w){
-    gymState.workout = (gymState.workout === w) ? null : w;
+  // ── SUGGESTION DROPDOWN ──
+
+  function gymSuggest(value){
+    const q = (value || '').trim().toLowerCase();
+    const inPlan = new Set(sessionPlan().map(e => slug(e.name)));
+    let names = allExerciseNames().filter(n => !inPlan.has(slug(n)));
+    if (q) names = names.filter(n => n.toLowerCase().includes(q));
+    gymState.suggest = names.slice(0, 8);
+    renderSuggestBox();
+  }
+
+  function renderSuggestBox(){
+    const box = document.getElementById('gymSuggestBox');
+    if (!box) return;
+    if (!gymState.suggest.length) { box.innerHTML = ''; return; }
+    box.innerHTML = gymState.suggest.map(n =>
+      `<div class="gym-suggest-item" onclick="chooseSuggestion('${escHtml(n).replace(/'/g,"\\'")}')">${escHtml(n)}</div>`
+    ).join('');
+  }
+
+  function chooseSuggestion(name){
+    const inp = document.getElementById('gymAddEx');
+    if (inp) inp.value = name;
+    gymState.suggest = [];
+    addSessionExercise();
+  }
+
+  // ── PER-SESSION EDITS ──
+
+  function addSessionExercise(){
+    const inp = document.getElementById('gymAddEx');
+    const name = (inp && inp.value.trim()) || '';
+    if (!name) return;
+    const routine = loadRoutine();
+    // reuse the routine's definition (incl. variants) if we already know this lift
+    let known = null;
+    Object.values(routine).concat(Object.values(DEFAULT_ROUTINE)).forEach(l => {
+      l.forEach(e => { if (!known && slug(e.name) === slug(name)) known = e; });
+    });
+    writeSession(s => {
+      if (!s.plan) s.plan = [];
+      if (s.plan.some(e => slug(e.name) === slug(name))) return;
+      s.plan.push(known ? JSON.parse(JSON.stringify(known)) : { name, sets:3, reps:'8-12' });
+    });
+    if (inp) inp.value = '';
+    gymState.suggest = [];
+    renderGym();
+  }
+
+  function removeSessionExercise(base){
+    writeSession(s => {
+      if (s.plan) s.plan = s.plan.filter(e => slug(e.name) !== base);
+      Object.keys(s.exercises).forEach(k => {
+        if (k === base || k.indexOf(base + '--') === 0) delete s.exercises[k];
+      });
+    });
     gymState.expanded = {};
     renderGym();
   }
+
+  // ── LOGGING ──
 
   function toggleExercise(key){
     const open = !gymState.expanded[key];
@@ -3441,8 +3709,7 @@ el.innerHTML = content;
       const existing = sess && sess.exercises[key];
       if (!existing || !existing.length) {
         const prev = lastEntry(key);
-        const routine = loadRoutine();
-        const ex = (routine[gymState.workout] || []).find(e => slug(e.name) === key);
+        const ex = sessionPlan().find(e => exKey(e) === key || slug(e.name) === key);
         const seed = prev
           ? prev.sets.filter(s => s.r).map(s => ({ w:s.w, r:'' }))
           : Array.from({length: ex ? ex.sets : 3}, () => ({ w:'', r:'' }));
@@ -3476,11 +3743,10 @@ el.innerHTML = content;
   }
 
   function updateGymCounter(){
-    const routine = loadRoutine();
     const sess = currentSession();
-    const list = routine[gymState.workout] || [];
+    const list = sessionPlan();
     const done = list.filter(e => {
-      const s = sess && sess.exercises[slug(e.name)];
+      const s = sess && sess.exercises[exKey(e)];
       return s && s.some(x => x.r);
     }).length;
     const pct = list.length ? Math.round((done/list.length)*100) : 0;
@@ -3499,7 +3765,6 @@ el.innerHTML = content;
       });
       s.done = true;
     });
-    // tick a task on that day so it feeds the streaks
     const key = gymState.date;
     const day = getDay(key);
     let task = day.tasks.find(t => t.text.toLowerCase() === 'gym');
@@ -3587,7 +3852,6 @@ el.innerHTML = content;
     root.innerHTML = h;
   }
 
-  // jump straight to a past session from the history list
   function gymJumpTo(dateKey){
     gymState.date = dateKey;
     gymState.weekStart = ymd(weekStartOf(new Date(dateKey + 'T00:00:00')));
@@ -3602,19 +3866,24 @@ el.innerHTML = content;
   function renderGymEdit(root){
     const routine = loadRoutine();
     let h = `<button class="gym-back" onclick="gymGo('session')">&lsaquo; Back</button>
-             <div class="screen-title" style="padding-top:6px">Edit Routine</div>`;
+             <div class="screen-title" style="padding-top:6px">Edit Routine</div>
+             <p class="gym-note">Changes here apply to future sessions. Days you've already opened keep the exercises they had.</p>
+             <datalist id="exNames">${allExerciseNames().map(n => `<option value="${escHtml(n)}"></option>`).join('')}</datalist>`;
 
     WORKOUT_ORDER.forEach(w => {
       h += `<div class="section-label" style="margin-top:20px">${w}</div>`;
       (routine[w] || []).forEach((ex, i) => {
         h += `<div class="gym-edit-row">
-                <input type="text" value="${escHtml(ex.name)}" onchange="editEx('${w}',${i},'name',this.value)"/>
+                <input type="text" list="exNames" value="${escHtml(ex.name)}" onchange="editEx('${w}',${i},'name',this.value)"/>
                 <div class="gym-edit-nums">
                   <input type="number" inputmode="numeric" value="${ex.sets}" onchange="editEx('${w}',${i},'sets',this.value)"/>
                   <span class="gym-x">×</span>
                   <input type="text" value="${escHtml(ex.reps)}" onchange="editEx('${w}',${i},'reps',this.value)"/>
                   <button class="gym-set-del" onclick="removeEx('${w}',${i})">✕</button>
                 </div>
+                <input type="text" class="gym-var-input" placeholder="Variants, comma separated (optional)"
+                       value="${escHtml((ex.variants || []).join(', '))}"
+                       onchange="editEx('${w}',${i},'variants',this.value)"/>
               </div>`;
       });
       h += `<button class="sync-btn" onclick="addEx('${w}')">+ Exercise</button>`;
@@ -3626,7 +3895,12 @@ el.innerHTML = content;
 
   function editEx(w, i, field, value){
     const r = loadRoutine();
-    r[w][i][field] = field === 'sets' ? (parseInt(value)||1) : value;
+    if (field === 'sets') r[w][i].sets = parseInt(value) || 1;
+    else if (field === 'variants') {
+      const list = value.split(',').map(s => s.trim()).filter(Boolean);
+      if (list.length) r[w][i].variants = list; else delete r[w][i].variants;
+    }
+    else r[w][i][field] = value;
     saveRoutine(r);
   }
   function removeEx(w, i){
