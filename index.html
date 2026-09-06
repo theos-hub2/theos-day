@@ -1038,6 +1038,30 @@
 }
 .gym-edit-nums input[type="text"] { flex: 1; width: auto; }
 
+.gym-dur {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--green);
+  min-width: 38px;
+  text-align: right;
+  flex-shrink: 0;
+}
+.gym-mode-toggle { display: flex; gap: 6px; margin-top: 6px; }
+.gym-mode {
+  padding: 6px 14px;
+  border: 1.5px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  font-family: 'EB Garamond', serif;
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-radius: 20px;
+  cursor: pointer;
+}
+.gym-mode.active { background: var(--green); border-color: var(--green); color: var(--white); }
+
 .gym-variants {
   display: flex;
   gap: 6px;
@@ -3265,7 +3289,7 @@ el.innerHTML = content;
       { name:'Walking Lunge',       sets:3, reps:'10-12' },
       { name:'Leg Curl',            sets:3, reps:'10-12' },
       { name:'Standing Calf Raise', sets:4, reps:'12-15' },
-      { name:'Weighted Plank',      sets:3, reps:'max' }
+      { name:'Weighted Plank',      sets:3, reps:'30-60s', mode:'time' }
     ],
     Push: [
       { name:'Incline Press',             sets:4, reps:'6-10',  variants:['Barbell','DB'] },
@@ -3292,6 +3316,87 @@ el.innerHTML = content;
       { name:'Cable Crunch',          sets:3, reps:'15' }
     ]
   };
+
+  // A broad catalogue so most lifts are searchable without typing them in full.
+  // Anything you add yourself gets appended to this list permanently.
+  const EXERCISE_LIBRARY = [
+    // Chest
+    'Bench Press','Incline Press','Decline Press','Chest Press','Floor Press',
+    'Push-Up','Dip','Cable Fly','Pec Deck','DB Fly','Incline DB Fly','Cable Crossover',
+    'Svend Press','Landmine Press',
+    // Back
+    'Row','Seated Cable Row','Lat Pulldown','Pull-Up','Chin-Up','Assisted Pull-Up',
+    'T-Bar Row','Pendlay Row','Meadows Row','Single-Arm DB Row','Inverted Row',
+    'Straight-Arm Pulldown','Shrug','Rack Pull','Back Extension','Good Morning',
+    // Shoulders
+    'Overhead Press','Seated DB Shoulder Press','Arnold Press','DB Lateral Raise',
+    'Cable Lateral Raise','Front Raise','Rear Delt Fly','Face Pull','Upright Row',
+    // Arms
+    'DB Curl','Barbell Curl','EZ Bar Curl','Preacher Curl','Hammer Curl',
+    'Incline DB Curl','Concentration Curl','Cable Curl','Spider Curl',
+    'Tricep Pushdown','Overhead Tricep Extension','Skull Crusher','Close-Grip Bench Press',
+    'Tricep Kickback','Bench Dip','Wrist Curl','Reverse Curl','Farmer Carry',
+    // Legs
+    'Back Squat','Front Squat','Goblet Squat','Hack Squat','Leg Press','Split Squat',
+    'Bulgarian Split Squat','Walking Lunge','Reverse Lunge','Step-Up','Sissy Squat',
+    'Deadlift','Romanian Deadlift','Stiff-Leg Deadlift','Sumo Deadlift','Trap Bar Deadlift',
+    'Hip Thrust','Glute Bridge','Leg Curl','Seated Leg Curl','Leg Extension',
+    'Standing Calf Raise','Seated Calf Raise','Calf Press','Adductor Machine','Abductor Machine',
+    'Nordic Curl','Box Jump',
+    // Core
+    'Plank','Weighted Plank','Side Plank','Hanging Knee Raise','Hanging Leg Raise',
+    'Cable Crunch','Crunch','Sit-Up','Russian Twist','Ab Wheel','Dead Bug',
+    'Mountain Climber','Hollow Hold','Pallof Press','Toes to Bar',
+    // Conditioning
+    'Treadmill','Stationary Bike','Rowing Machine','Elliptical','Stair Climber',
+    'Jump Rope','Battle Ropes','Sled Push','Assault Bike'
+  ];
+
+  // Logged in seconds rather than reps. Weight stays optional — a weighted
+  // plank records both, a bodyweight one just the hold.
+  const TIME_BASED = new Set([
+    'plank','weighted-plank','side-plank','hollow-hold','wall-sit','dead-hang',
+    'farmer-carry','sled-push','battle-ropes','jump-rope',
+    'treadmill','stationary-bike','rowing-machine','elliptical','stair-climber','assault-bike'
+  ]);
+
+  function exMode(ex){
+    if (ex && ex.mode) return ex.mode;
+    return (ex && TIME_BASED.has(slug(ex.name))) ? 'time' : 'reps';
+  }
+
+  // resolve mode from a storage key, for history views
+  function modeForKey(key){
+    const base = String(key).split('--')[0];
+    let found = null;
+    Object.values(loadRoutine()).forEach(l => l.forEach(e => {
+      if (!found && slug(e.name) === base && e.mode) found = e.mode;
+    }));
+    if (found) return found;
+    Object.values(loadGymLog()).forEach(s => (s.plan || []).forEach(e => {
+      if (!found && slug(e.name) === base && e.mode) found = e.mode;
+    }));
+    return found || (TIME_BASED.has(base) ? 'time' : 'reps');
+  }
+
+  function fmtDur(sec){
+    const n = Number(sec) || 0;
+    if (n < 60) return n + 's';
+    const m = Math.floor(n / 60), s = n % 60;
+    return m + ':' + String(s).padStart(2,'0');
+  }
+
+  function loadCustomExercises(){
+    try { return JSON.parse(localStorage.getItem('theosCustomExercises') || '[]'); }
+    catch { return []; }
+  }
+  function rememberExercise(name){
+    const list = loadCustomExercises();
+    if (!list.some(n => slug(n) === slug(name))) {
+      list.push(name);
+      localStorage.setItem('theosCustomExercises', JSON.stringify(list));
+    }
+  }
 
   function slug(s){ return String(s).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,''); }
 
@@ -3423,13 +3528,21 @@ el.innerHTML = content;
 
   function allExerciseNames(){
     const names = new Set();
+    EXERCISE_LIBRARY.forEach(n => names.add(n));
+    loadCustomExercises().forEach(n => names.add(n));
     Object.values(DEFAULT_ROUTINE).forEach(l => l.forEach(e => names.add(e.name)));
     Object.values(loadRoutine()).forEach(l => l.forEach(e => names.add(e.name)));
     Object.values(loadGymLog()).forEach(s => (s.plan || []).forEach(e => names.add(e.name)));
-    return [...names].sort();
+    // one entry per name, case-insensitive
+    const seen = new Map();
+    [...names].forEach(n => { if (!seen.has(slug(n))) seen.set(slug(n), n); });
+    return [...seen.values()].sort((a,b) => a.localeCompare(b));
   }
 
-  function setsSummary(sets){
+  function setsSummary(sets, mode){
+    if (mode === 'time') {
+      return sets.filter(s => s.r).map(s => (s.w ? s.w + 'kg ' + fmtDur(s.r) : fmtDur(s.r))).join(', ');
+    }
     return sets.filter(s => s.r).map(s => (s.w ? s.w + '×' + s.r : s.r)).join(', ');
   }
 
@@ -3574,14 +3687,15 @@ el.innerHTML = content;
       const logged = sets.some(s => s.r);
       const prev = lastEntry(key);
       const label = displayName(ex, variant);
+      const mode = exMode(ex);
 
       h += `<div class="gym-ex${logged ? ' logged' : ''}">
               <div class="gym-ex-head" onclick="toggleExercise('${key}')">
                 <div class="gym-ex-main">
                   <div class="gym-ex-name">${escHtml(label)}</div>
                   <div class="gym-ex-sub">${ex.sets} × ${ex.reps}${
-                    logged ? ' · <span class="gym-now">' + setsSummary(sets) + '</span>'
-                           : (prev ? ' · last: ' + setsSummary(prev.sets) : '')
+                    logged ? ' · <span class="gym-now">' + setsSummary(sets, mode) + '</span>'
+                           : (prev ? ' · last: ' + setsSummary(prev.sets, mode) : '')
                   }</div>
                 </div>
                 <span class="gym-ex-chev${open ? ' open' : ''}">&rsaquo;</span>
@@ -3604,9 +3718,10 @@ el.innerHTML = content;
                   <span class="gym-set-n">${i+1}</span>
                   <input type="number" inputmode="decimal" placeholder="kg" value="${s.w ?? ''}"
                          onchange="setVal('${key}',${i},'w',this.value)"/>
-                  <span class="gym-x">×</span>
-                  <input type="number" inputmode="numeric" placeholder="reps" value="${s.r ?? ''}"
-                         onchange="setVal('${key}',${i},'r',this.value)"/>
+                  <span class="gym-x">${mode === 'time' ? 'for' : '×'}</span>
+                  <input type="number" inputmode="numeric" placeholder="${mode === 'time' ? 'sec' : 'reps'}"
+                         value="${s.r ?? ''}" onchange="setVal('${key}',${i},'r',this.value)"/>
+                  ${mode === 'time' ? `<span class="gym-dur">${s.r ? fmtDur(s.r) : ''}</span>` : ''}
                   <button class="gym-set-del" onclick="removeSet('${key}',${i})">✕</button>
                 </div>`;
         });
@@ -3623,7 +3738,7 @@ el.innerHTML = content;
     h += `<div class="gym-addex">
             <input type="text" id="gymAddEx" placeholder="Add an exercise to this session…"
                    autocapitalize="words" spellcheck="false" autocomplete="off"
-                   oninput="gymSuggest(this.value)" onfocus="gymSuggest(this.value)"/>
+                   oninput="gymSuggest(this.value)" onclick="gymToggleSuggest(event)"/>
             <button class="btn btn-add" onclick="addSessionExercise()">Add</button>
           </div>
           <div class="gym-suggest" id="gymSuggestBox"></div>
@@ -3659,6 +3774,35 @@ el.innerHTML = content;
     ).join('');
   }
 
+  function gymToggleSuggest(e){
+    if (e) e.stopPropagation();
+    if (gymState.suggest.length) {
+      gymState.suggest = [];
+      renderSuggestBox();
+    } else {
+      const inp = document.getElementById('gymAddEx');
+      gymSuggest(inp ? inp.value : '');
+    }
+  }
+
+  function closeSuggest(){
+    if (!gymState.suggest.length) return;
+    gymState.suggest = [];
+    renderSuggestBox();
+    const inp = document.getElementById('gymAddEx');
+    if (inp) inp.blur();
+  }
+
+  // tap anywhere else and the dropdown goes away
+  document.addEventListener('click', e => {
+    if (!gymState.suggest.length) return;
+    const inp = document.getElementById('gymAddEx');
+    const box = document.getElementById('gymSuggestBox');
+    if (inp && (e.target === inp || inp.contains(e.target))) return;
+    if (box && box.contains(e.target)) return;
+    closeSuggest();
+  });
+
   function chooseSuggestion(name){
     const inp = document.getElementById('gymAddEx');
     if (inp) inp.value = name;
@@ -3681,8 +3825,14 @@ el.innerHTML = content;
     writeSession(s => {
       if (!s.plan) s.plan = [];
       if (s.plan.some(e => slug(e.name) === slug(name))) return;
-      s.plan.push(known ? JSON.parse(JSON.stringify(known)) : { name, sets:3, reps:'8-12' });
+      if (known) {
+        s.plan.push(JSON.parse(JSON.stringify(known)));
+      } else {
+        const timed = TIME_BASED.has(slug(name));
+        s.plan.push({ name, sets:3, reps: timed ? '30-60s' : '8-12', mode: timed ? 'time' : 'reps' });
+      }
     });
+    rememberExercise(known ? known.name : name);
     if (inp) inp.value = '';
     gymState.suggest = [];
     renderGym();
@@ -3797,7 +3947,9 @@ el.innerHTML = content;
       if (!valid.length) return null;
       const volume = valid.reduce((a,s) => a + (Number(s.w)||0) * (Number(s.r)||0), 0);
       const top = Math.max(...valid.map(s => Number(s.w)||0));
-      return { date, sets: valid, volume, top };
+      const totalTime = valid.reduce((a,s) => a + (Number(s.r)||0), 0);
+      const longest = Math.max(...valid.map(s => Number(s.r)||0));
+      return { date, sets: valid, volume, top, totalTime, longest };
     }).filter(Boolean);
   }
 
@@ -3824,17 +3976,29 @@ el.innerHTML = content;
   function renderGymExercise(root){
     const { key, name } = gymState.exercise;
     const hist = exerciseHistory(key);
+    const mode = modeForKey(key);
     let h = `<button class="gym-back" onclick="gymGo('session')">&lsaquo; Back</button>
              <div class="screen-title" style="padding-top:6px">${escHtml(name)}</div>`;
 
-    h += `<div class="gym-chart-block">
-            <div class="sync-label">Heaviest set (kg)</div>
-            ${sparkline(hist.map(p => ({v:p.top})), '#1a4d2e')}
-          </div>`;
-    h += `<div class="gym-chart-block">
-            <div class="sync-label">Total volume (kg)</div>
-            ${sparkline(hist.map(p => ({v:p.volume})), '#52b788')}
-          </div>`;
+    if (mode === 'time') {
+      h += `<div class="gym-chart-block">
+              <div class="sync-label">Longest hold (sec)</div>
+              ${sparkline(hist.map(p => ({v:p.longest})), '#1a4d2e')}
+            </div>`;
+      h += `<div class="gym-chart-block">
+              <div class="sync-label">Total time (sec)</div>
+              ${sparkline(hist.map(p => ({v:p.totalTime})), '#52b788')}
+            </div>`;
+    } else {
+      h += `<div class="gym-chart-block">
+              <div class="sync-label">Heaviest set (kg)</div>
+              ${sparkline(hist.map(p => ({v:p.top})), '#1a4d2e')}
+            </div>`;
+      h += `<div class="gym-chart-block">
+              <div class="sync-label">Total volume (kg)</div>
+              ${sparkline(hist.map(p => ({v:p.volume})), '#52b788')}
+            </div>`;
+    }
 
     h += '<div class="section-label" style="margin-top:22px">Sessions</div>';
     if (!hist.length) {
@@ -3844,8 +4008,10 @@ el.innerHTML = content;
         const d = new Date(p.date + 'T00:00:00');
         h += `<div class="gym-hist-row" onclick="gymJumpTo('${p.date}')">
                 <div class="gym-hist-date">${d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})}</div>
-                <div class="gym-hist-sets">${setsSummary(p.sets)}</div>
-                <div class="gym-hist-meta">top ${p.top}kg · ${p.volume}kg total</div>
+                <div class="gym-hist-sets">${setsSummary(p.sets, mode)}</div>
+                <div class="gym-hist-meta">${mode === 'time'
+                    ? 'longest ' + fmtDur(p.longest) + ' · ' + fmtDur(p.totalTime) + ' total'
+                    : 'top ' + p.top + 'kg · ' + p.volume + 'kg total'}</div>
               </div>`;
       });
     }
@@ -3884,6 +4050,10 @@ el.innerHTML = content;
                 <input type="text" class="gym-var-input" placeholder="Variants, comma separated (optional)"
                        value="${escHtml((ex.variants || []).join(', '))}"
                        onchange="editEx('${w}',${i},'variants',this.value)"/>
+                <div class="gym-mode-toggle">
+                  <button class="gym-mode${exMode(ex) === 'reps' ? ' active' : ''}" onclick="editEx('${w}',${i},'mode','reps')">Reps</button>
+                  <button class="gym-mode${exMode(ex) === 'time' ? ' active' : ''}" onclick="editEx('${w}',${i},'mode','time')">Time</button>
+                </div>
               </div>`;
       });
       h += `<button class="sync-btn" onclick="addEx('${w}')">+ Exercise</button>`;
@@ -3900,6 +4070,7 @@ el.innerHTML = content;
       const list = value.split(',').map(s => s.trim()).filter(Boolean);
       if (list.length) r[w][i].variants = list; else delete r[w][i].variants;
     }
+    else if (field === 'mode') { r[w][i].mode = value; saveRoutine(r); renderGym(); return; }
     else r[w][i][field] = value;
     saveRoutine(r);
   }
