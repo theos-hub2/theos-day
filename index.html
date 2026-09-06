@@ -803,6 +803,61 @@
 }
 
 /* ── GYM ── */
+.gym-week-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 4px;
+  margin-bottom: 12px;
+}
+.gym-week-nav .cal-nav { width: 38px; height: 38px; font-size: 1.25rem; }
+.gym-week-label {
+  flex: 1;
+  text-align: center;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--green);
+  white-space: nowrap;
+}
+.gym-day { position: relative; }
+.gym-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--green-light);
+  display: block;
+}
+.week-cell.today .gym-dot { background: var(--white); }
+.gym-daybar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.gym-daybar-date {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.gym-today-btn {
+  padding: 6px 12px;
+  border: 1.5px solid var(--green);
+  background: transparent;
+  color: var(--green);
+  font-family: 'EB Garamond', serif;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-radius: 3px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.gym-hist-row { cursor: pointer; }
 .gym-chips { display: flex; gap: 6px; margin-top: 4px; }
 .gym-chip {
   flex: 1;
@@ -3148,37 +3203,54 @@ el.innerHTML = content;
   }
   function saveGymLog(l){ localStorage.setItem('theosGymLog', JSON.stringify(l)); queueSync(); }
 
-  let gymState = { view:'session', workout:null, exercise:null, expanded:{} };
+  // date is the session being viewed/edited; weekStart is the strip on screen
+  let gymState = {
+    view: 'session',
+    date: null,
+    weekStart: null,
+    workout: null,
+    exercise: null,
+    expanded: {}
+  };
 
-  function todaysWorkout(){ return GYM_SCHEDULE[new Date().getDay()] || null; }
+  function gymInit(){
+    if (!gymState.date) gymState.date = getTodayKey();
+    if (!gymState.weekStart) gymState.weekStart = ymd(weekStartOf(new Date()));
+    if (gymState.workout === null) gymState.workout = defaultWorkoutFor(gymState.date);
+  }
 
-  function currentSession(create){
+  function scheduledFor(dateKey){
+    const d = new Date(dateKey + 'T00:00:00');
+    return GYM_SCHEDULE[d.getDay()] || null;
+  }
+
+  // a logged session wins over the schedule
+  function defaultWorkoutFor(dateKey){
     const log = loadGymLog();
-    const k = getTodayKey();
-    if (!log[k] && create) {
-      log[k] = { workout: gymState.workout, exercises:{}, done:false };
-      saveGymLog(log);
-    }
-    return log[k] || null;
+    if (log[dateKey] && log[dateKey].workout) return log[dateKey].workout;
+    return scheduledFor(dateKey);
+  }
+
+  function currentSession(){
+    return loadGymLog()[gymState.date] || null;
   }
 
   function writeSession(mut){
     const log = loadGymLog();
-    const k = getTodayKey();
+    const k = gymState.date;
     if (!log[k]) log[k] = { workout: gymState.workout, exercises:{}, done:false };
     log[k].workout = gymState.workout;
     mut(log[k]);
     saveGymLog(log);
   }
 
-  // most recent prior session containing this exercise
+  // most recent session before the one being edited that contains this exercise
   function lastEntry(exKey){
     const log = loadGymLog();
-    const today = getTodayKey();
-    const keys = Object.keys(log).filter(k => k < today).sort().reverse();
+    const keys = Object.keys(log).filter(k => k < gymState.date).sort().reverse();
     for (const k of keys) {
       const sets = log[k].exercises && log[k].exercises[exKey];
-      if (sets && sets.length) return { date:k, sets };
+      if (sets && sets.length && sets.some(s => s.r)) return { date:k, sets };
     }
     return null;
   }
@@ -3187,33 +3259,103 @@ el.innerHTML = content;
     return sets.filter(s => s.r).map(s => (s.w ? s.w + '×' + s.r : s.r)).join(', ');
   }
 
-  // ── SESSION ──
+  function sessionLogged(dateKey){
+    const log = loadGymLog();
+    const s = log[dateKey];
+    if (!s || !s.exercises) return false;
+    return Object.values(s.exercises).some(sets => sets.some(x => x.r));
+  }
+
+  // ── NAVIGATION ──
+
+  function gymWeekShift(delta){
+    const d = new Date(gymState.weekStart + 'T00:00:00');
+    d.setDate(d.getDate() + delta*7);
+    gymState.weekStart = ymd(d);
+    renderGym();
+  }
+
+  function gymPickDay(dateKey){
+    gymState.date = dateKey;
+    gymState.workout = defaultWorkoutFor(dateKey);
+    gymState.expanded = {};
+    renderGym();
+  }
+
+  function gymToday(){
+    gymState.date = getTodayKey();
+    gymState.weekStart = ymd(weekStartOf(new Date()));
+    gymState.workout = defaultWorkoutFor(gymState.date);
+    gymState.expanded = {};
+    renderGym();
+  }
+
+  // ── RENDER ──
 
   function renderGym(){
-    if (gymState.workout === null) gymState.workout = todaysWorkout();
+    gymInit();
     const root = document.getElementById('gymBody');
     if (gymState.view === 'exercise') return renderGymExercise(root);
     if (gymState.view === 'edit')     return renderGymEdit(root);
     renderGymSession(root);
   }
 
+  function gymWeekStripHTML(){
+    const start = new Date(gymState.weekStart + 'T00:00:00');
+    const end = new Date(start); end.setDate(end.getDate() + 6);
+    const fmt = { month:'short', day:'numeric' };
+    const names = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+
+    let h = `<div class="gym-week-nav">
+               <button class="cal-nav" onclick="gymWeekShift(-1)" aria-label="Previous week">&lsaquo;</button>
+               <span class="gym-week-label">${start.toLocaleDateString('en-US',fmt)} — ${end.toLocaleDateString('en-US',fmt)}</span>
+               <button class="cal-nav" onclick="gymWeekShift(1)" aria-label="Next week">&rsaquo;</button>
+             </div>
+             <div class="week-strip">`;
+
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(start); d.setDate(d.getDate() + i);
+      const key = ymd(d);
+      let cls = 'week-cell gym-day';
+      if (key === gymState.date) cls += ' selected';
+      if (key === getTodayKey()) cls += ' today';
+      if (key > getTodayKey()) cls += ' future';
+      const dot = sessionLogged(key) ? '<span class="gym-dot"></span>' : '';
+      h += `<div class="${cls}" onclick="gymPickDay('${key}')">
+              <div class="wc-name">${names[i]}</div>
+              <div class="wc-num">${d.getDate()}</div>
+              ${dot}
+            </div>`;
+    }
+    h += '</div>';
+    return h;
+  }
+
   function renderGymSession(root){
     const routine = loadRoutine();
-    const scheduled = todaysWorkout();
-    const sess = currentSession(false);
-    let h = '';
+    const sess = currentSession();
+    const isToday = gymState.date === getTodayKey();
+    const dObj = new Date(gymState.date + 'T00:00:00');
+
+    let h = gymWeekStripHTML();
+
+    h += `<div class="gym-daybar">
+            <span class="gym-daybar-date">${dObj.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})}</span>
+            ${isToday ? '' : '<button class="gym-today-btn" onclick="gymToday()">Today</button>'}
+          </div>`;
 
     h += '<div class="gym-chips">';
+    const sched = scheduledFor(gymState.date);
     WORKOUT_ORDER.forEach(w => {
-      const cls = 'gym-chip' + (w === gymState.workout ? ' active' : '') + (w === scheduled ? ' scheduled' : '');
+      const cls = 'gym-chip' + (w === gymState.workout ? ' active' : '') + (w === sched ? ' scheduled' : '');
       h += `<button class="${cls}" onclick="pickWorkout('${w}')">${w}</button>`;
     });
     h += '</div>';
 
     if (!gymState.workout) {
       h += `<div class="gym-rest">
-              <div class="gym-rest-title">Rest day</div>
-              <p>Nothing scheduled today. Pick a session above if you want to train anyway.</p>
+              <div class="gym-rest-title">${sched ? 'No session' : 'Rest day'}</div>
+              <p>Pick a workout above to log one for this day.</p>
             </div>`;
       root.innerHTML = h;
       return;
@@ -3269,7 +3411,7 @@ el.innerHTML = content;
         });
         h += `<div class="gym-set-actions">
                 <button class="sync-btn" onclick="addSet('${key}')">+ Set</button>
-                <button class="sync-btn" onclick="openExercise('${key}','${escHtml(ex.name)}')">History</button>
+                <button class="sync-btn" onclick="openExercise('${key}','${escHtml(ex.name).replace(/'/g,"\\'")}')">History</button>
               </div>`;
         h += '</div>';
       }
@@ -3278,7 +3420,7 @@ el.innerHTML = content;
 
     const finished = sess && sess.done;
     h += `<button class="gym-finish${finished ? ' done' : ''}" onclick="finishSession()">
-            ${finished ? '✓ Session logged' : 'Finish session'}
+            ${finished ? '✓ Session logged' : (isToday ? 'Finish session' : 'Save session')}
           </button>`;
     h += `<button class="sync-btn gym-edit-btn" onclick="gymGo('edit')">Edit routine</button>`;
 
@@ -3295,15 +3437,14 @@ el.innerHTML = content;
     const open = !gymState.expanded[key];
     gymState.expanded[key] = open;
     if (open) {
-      // seed from last session, or blank rows matching the target
-      const sess = currentSession(false);
+      const sess = currentSession();
       const existing = sess && sess.exercises[key];
       if (!existing || !existing.length) {
         const prev = lastEntry(key);
         const routine = loadRoutine();
         const ex = (routine[gymState.workout] || []).find(e => slug(e.name) === key);
         const seed = prev
-          ? prev.sets.map(s => ({ w:s.w, r:'' }))
+          ? prev.sets.filter(s => s.r).map(s => ({ w:s.w, r:'' }))
           : Array.from({length: ex ? ex.sets : 3}, () => ({ w:'', r:'' }));
         writeSession(s => { s.exercises[key] = seed; });
       }
@@ -3336,7 +3477,7 @@ el.innerHTML = content;
 
   function updateGymCounter(){
     const routine = loadRoutine();
-    const sess = currentSession(false);
+    const sess = currentSession();
     const list = routine[gymState.workout] || [];
     const done = list.filter(e => {
       const s = sess && sess.exercises[slug(e.name)];
@@ -3352,15 +3493,14 @@ el.innerHTML = content;
 
   function finishSession(){
     writeSession(s => {
-      // drop set rows you never filled in
       Object.keys(s.exercises).forEach(k => {
         s.exercises[k] = s.exercises[k].filter(x => x.r !== '' && x.r != null);
         if (!s.exercises[k].length) delete s.exercises[k];
       });
       s.done = true;
     });
-    // tick a task on Today so it feeds the streaks
-    const key = getTodayKey();
+    // tick a task on that day so it feeds the streaks
+    const key = gymState.date;
     const day = getDay(key);
     let task = day.tasks.find(t => t.text.toLowerCase() === 'gym');
     if (task) {
@@ -3398,20 +3538,19 @@ el.innerHTML = content;
 
   function sparkline(points, color){
     if (points.length === 0) return '<div class="gym-nochart">No data yet</div>';
-    const W = 300, H = 90, P = 10;
+    const W = 300, H = 90, P = 12;
     const vals = points.map(p => p.v);
     const max = Math.max(...vals), min = Math.min(...vals);
     const span = (max - min) || 1;
     const step = points.length > 1 ? (W - P*2) / (points.length - 1) : 0;
     const xy = points.map((p,i) => [
-      P + i*step,
+      points.length > 1 ? P + i*step : W/2,
       H - P - ((p.v - min) / span) * (H - P*2)
     ]);
     const line = xy.map(([x,y],i) => (i ? 'L' : 'M') + x.toFixed(1) + ' ' + y.toFixed(1)).join(' ');
     const dots = xy.map(([x,y]) => `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3" fill="${color}"/>`).join('');
     return `<svg viewBox="0 0 ${W} ${H}" class="gym-chart" preserveAspectRatio="none">
-              <path d="${line}" fill="none" stroke="${color}" stroke-width="2.5"
-                    stroke-linejoin="round" stroke-linecap="round"/>
+              ${points.length > 1 ? `<path d="${line}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>` : ''}
               ${dots}
             </svg>
             <div class="gym-chart-scale"><span>${min}</span><span>${max}</span></div>`;
@@ -3438,7 +3577,7 @@ el.innerHTML = content;
     } else {
       [...hist].reverse().forEach(p => {
         const d = new Date(p.date + 'T00:00:00');
-        h += `<div class="gym-hist-row">
+        h += `<div class="gym-hist-row" onclick="gymJumpTo('${p.date}')">
                 <div class="gym-hist-date">${d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})}</div>
                 <div class="gym-hist-sets">${setsSummary(p.sets)}</div>
                 <div class="gym-hist-meta">top ${p.top}kg · ${p.volume}kg total</div>
@@ -3446,6 +3585,16 @@ el.innerHTML = content;
       });
     }
     root.innerHTML = h;
+  }
+
+  // jump straight to a past session from the history list
+  function gymJumpTo(dateKey){
+    gymState.date = dateKey;
+    gymState.weekStart = ymd(weekStartOf(new Date(dateKey + 'T00:00:00')));
+    gymState.workout = defaultWorkoutFor(dateKey);
+    gymState.expanded = {};
+    gymState.view = 'session';
+    renderGym();
   }
 
   // ── EDIT ROUTINE ──
@@ -3497,7 +3646,6 @@ el.innerHTML = content;
     saveRoutine(JSON.parse(JSON.stringify(DEFAULT_ROUTINE)));
     renderGym();
   }
-
 
   // ── GIST SYNC ──
   const GIST_FILE = 'theos-day.json';
