@@ -815,6 +815,20 @@
   color: var(--green);
 }
 
+.notif-when {
+  grid-column: 1 / -1;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1.5px solid var(--border);
+  background: var(--off-white);
+  color: var(--ink-mid);
+  font-family: 'EB Garamond', serif;
+  font-size: 16px;
+  font-weight: 600;
+  outline: none;
+  border-radius: 3px;
+}
+
 .token-actions {
   display: flex;
   gap: 8px;
@@ -4590,8 +4604,15 @@ el.innerHTML = content;
   }
 
   const DEFAULT_NOTIFS = [
-    { time: '08:00', message: 'Morning — set out what you want to get done today.' },
-    { time: '19:00', message: '{done}/{total} done, {left} still open. Time to check in.' }
+    { time: '08:00', message: 'Morning — set out what you want to get done today.', when: 'always' },
+    { time: '19:00', message: '{done}/{total} done, {left} still open. Time to check in.', when: 'incomplete' }
+  ];
+
+  const NOTIF_CONDITIONS = [
+    ['always',     'Always send'],
+    ['incomplete', 'Only if tasks are unfinished'],
+    ['complete',   "Only if everything's done"],
+    ['empty',      'Only if no tasks set yet']
   ];
 
   function loadNotifs(){
@@ -4632,6 +4653,9 @@ el.innerHTML = content;
         <button class="gym-set-del" onclick="removeNotif(${i})">✕</button>
         <textarea rows="2" placeholder="What should it say?"
                   onchange="editNotif(${i},'message',this.value)">${escHtml(n.message)}</textarea>
+        <select class="notif-when" onchange="editNotif(${i},'when',this.value)">
+          ${NOTIF_CONDITIONS.map(([v,l]) => `<option value="${v}"${(n.when || 'always') === v ? ' selected' : ''}>${l}</option>`).join('')}
+        </select>
       </div>`).join('');
   }
 
@@ -4646,7 +4670,7 @@ el.innerHTML = content;
 
   function addNotif(){
     const s = loadNotifs();
-    s.items.push({ time: '12:00', message: 'Check in.' });
+    s.items.push({ time: '12:00', message: 'Check in.', when: 'always' });
     saveNotifs(s);
     renderNotifs();
     pushNotifConfig(true);

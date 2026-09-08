@@ -1,7 +1,7 @@
 /* theo's day — service worker
    Bump CACHE_VERSION whenever you change index.html so the new version installs. */
 
-const CACHE_VERSION = 'v20';
+const CACHE_VERSION = 'v21';
 const SHELL_CACHE = `td-shell-${CACHE_VERSION}`;
 const FONT_CACHE = 'td-fonts';
 
