@@ -67,6 +67,25 @@ function dueNow(cfg, state) {
   });
 }
 
+// The snapshot is only written when the app is open, so it can be yesterday's.
+// Treat a stale one as "nothing set today" — which is true, and is exactly what
+// a morning "no tasks yet" reminder should fire on.
+function todaySnapshot(snap, localDate) {
+  if (!snap || snap.date !== localDate) return { done: 0, total: 0, pct: 0, stale: true };
+  return snap;
+}
+
+function conditionMet(when, snap) {
+  const total = snap.total || 0;
+  const done = snap.done || 0;
+  switch (when) {
+    case 'incomplete': return total > 0 && done < total;
+    case 'complete':   return total > 0 && done >= total;
+    case 'empty':      return total === 0;
+    default:           return true;
+  }
+}
+
 // {done} {total} {left} {pct} get filled from today's snapshot
 function fillTemplate(message, snap) {
   const total = (snap && snap.total) || 0;
@@ -127,13 +146,22 @@ async function saveState(state) {
     return;
   }
 
-  let snap = null;
-  try { snap = await getJSON('theos-day.json'); } catch { /* template falls back to zeros */ }
+  let rawSnap = null;
+  try { rawSnap = await getJSON('theos-day.json'); } catch { /* falls back to zeros */ }
+  const snap = todaySnapshot(rawSnap, now.date);
+  if (snap.stale) console.log('Snapshot is not from today — treating as no tasks set.');
 
   webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
 
   let changed = false;
   for (const item of due) {
+    const when = item.when || 'always';
+    if (!conditionMet(when, snap)) {
+      // condition failed — count it as handled so it can't surprise you later
+      console.log(`Skipped ${item.time}: condition "${when}" not met (${snap.done}/${snap.total}).`);
+      if (!FORCE_SLOT) { state.lastSent[item.time] = now.date; changed = true; }
+      continue;
+    }
     const body = fillTemplate(item.message, snap);
     const payload = JSON.stringify({ title: "theo's day", body, tag: 'td-' + (item.time || 'now') });
     try {
