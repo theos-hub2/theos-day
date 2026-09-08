@@ -947,6 +947,154 @@
   line-height: 1.4;
 }
 
+/* ── CHARTS ── */
+.chart-block { margin-top: 18px; }
+.chart-title {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--green);
+  margin-bottom: 4px;
+}
+.chart-ylabel {
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 2px;
+}
+.chart-svg {
+  width: 100%;
+  height: auto;
+  background: var(--off-white);
+  border: 1.5px solid var(--border);
+  border-radius: 4px;
+  display: block;
+}
+.chart-grid { stroke: var(--border); stroke-width: 1; }
+.chart-axis { stroke: var(--border); stroke-width: 1.5; }
+.chart-ytick {
+  fill: var(--muted);
+  font-size: 9px;
+  font-family: 'EB Garamond', serif;
+  text-anchor: end;
+}
+.chart-xtick {
+  fill: var(--muted);
+  font-size: 9px;
+  font-family: 'EB Garamond', serif;
+  text-anchor: middle;
+}
+.chart-filters { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 14px; }
+.chart-filter {
+  padding: 6px 13px;
+  border: 1.5px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  font-family: 'EB Garamond', serif;
+  font-size: 0.74rem;
+  font-weight: 600;
+  border-radius: 20px;
+  cursor: pointer;
+}
+.chart-filter.active { background: var(--green); border-color: var(--green); color: var(--white); }
+.chart-legend { display: flex; gap: 14px; margin-top: 8px; flex-wrap: wrap; }
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.74rem;
+  color: var(--ink-mid);
+  text-transform: capitalize;
+}
+.legend-item i { width: 10px; height: 10px; border-radius: 50%; display: block; }
+.chart-callout {
+  margin-top: 10px;
+  padding: 11px 13px;
+  background: var(--off-white);
+  border-left: 3px solid var(--green);
+  border-radius: 3px;
+  font-size: 0.88rem;
+  color: var(--ink);
+}
+.gym-hist-row.selected {
+  background: var(--off-white);
+  border-left: 3px solid var(--green);
+  padding-left: 9px;
+}
+.hist-open {
+  margin-left: 8px;
+  padding: 2px 9px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--green);
+  font-family: 'EB Garamond', serif;
+  font-size: 0.68rem;
+  font-weight: 600;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+/* ── BODYWEIGHT ── */
+.weight-box {
+  margin-top: 14px;
+  padding: 13px 15px;
+  background: var(--off-white);
+  border: 1.5px solid var(--border);
+  border-radius: 4px;
+}
+.weight-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.weight-title {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--green);
+}
+.weight-row { display: flex; gap: 8px; }
+.weight-row input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1.5px solid var(--green);
+  background: var(--white);
+  color: var(--ink);
+  font-family: 'EB Garamond', serif;
+  font-weight: 700;
+  outline: none;
+  border-radius: 3px;
+}
+.weight-row select {
+  flex-shrink: 0;
+  padding: 10px 8px;
+  border: 1.5px solid var(--border);
+  background: var(--white);
+  color: var(--ink-mid);
+  font-family: 'EB Garamond', serif;
+  font-weight: 600;
+  outline: none;
+  border-radius: 3px;
+}
+.weight-logged {
+  margin-top: 8px;
+  font-size: 0.76rem;
+  color: var(--muted);
+}
+.wl-slot {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--green);
+}
+
 /* ── GYM ── */
 .gym-week-nav {
   display: flex;
@@ -3872,6 +4020,7 @@ el.innerHTML = content;
     gymInit();
     const root = document.getElementById('gymBody');
     if (gymState.view === 'exercise') return renderGymExercise(root);
+    if (gymState.view === 'weight')   return renderWeightHistory(root);
     if (gymState.view === 'edit')     return renderGymEdit(root);
     renderGymSession(root);
   }
@@ -3917,6 +4066,8 @@ el.innerHTML = content;
             <span class="gym-daybar-date">${dObj.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})}</span>
             ${isToday ? '' : '<button class="gym-today-btn" onclick="gymToday()">Today</button>'}
           </div>`;
+
+    h += weightBoxHTML();
 
     h += '<div class="gym-chips">';
     const sched = scheduledFor(gymState.date);
@@ -4202,10 +4353,218 @@ el.innerHTML = content;
     renderGym();
   }
 
+  // ── CHART ──
+  // One chart used by both the exercise history and the bodyweight view.
+  // Axes are labelled, points are tappable.
+
+  function niceBounds(values){
+    const nums = values.filter(v => v != null && !isNaN(v));
+    if (!nums.length) return { min: 0, max: 1 };
+    let min = Math.min(...nums), max = Math.max(...nums);
+    if (min === max) { min -= 1; max += 1; }
+    const pad = (max - min) * 0.12;
+    return { min: min - pad, max: max + pad };
+  }
+
+  function shortDate(key){
+    const d = new Date(key + 'T00:00:00');
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }
+
+  function fmtNum(n){
+    const r = Math.round(n * 10) / 10;
+    return Number.isInteger(r) ? String(r) : r.toFixed(1);
+  }
+
+  // series: [{ name, color, values: [] }]  — values align with labels
+  function lineChart(opts){
+    const { series, labels, yLabel, selected, onSelect } = opts;
+    const W = 320, H = 190, L = 40, R = 12, T = 14, B = 34;
+    const plotW = W - L - R, plotH = H - T - B;
+
+    const all = series.flatMap(s => s.values);
+    if (!all.some(v => v != null)) return '<div class="gym-nochart">No data yet</div>';
+
+    const { min, max } = niceBounds(all);
+    const span = max - min || 1;
+    const n = labels.length;
+    const x = i => n > 1 ? L + (i / (n - 1)) * plotW : L + plotW / 2;
+    const y = v => T + plotH - ((v - min) / span) * plotH;
+
+    let svg = `<svg viewBox="0 0 ${W} ${H}" class="chart-svg" role="img">`;
+
+    // horizontal gridlines with y labels
+    [0, 0.5, 1].forEach(f => {
+      const val = min + span * f;
+      const yy = y(val);
+      svg += `<line x1="${L}" y1="${yy.toFixed(1)}" x2="${W - R}" y2="${yy.toFixed(1)}" class="chart-grid"/>`;
+      svg += `<text x="${L - 6}" y="${(yy + 3.5).toFixed(1)}" class="chart-ytick">${fmtNum(val)}</text>`;
+    });
+
+    // axis lines
+    svg += `<line x1="${L}" y1="${T}" x2="${L}" y2="${T + plotH}" class="chart-axis"/>`;
+    svg += `<line x1="${L}" y1="${T + plotH}" x2="${W - R}" y2="${T + plotH}" class="chart-axis"/>`;
+
+    // x labels — first, last, and a couple between
+    const tickIdx = n <= 4
+      ? labels.map((_, i) => i)
+      : [0, Math.round((n - 1) / 3), Math.round(2 * (n - 1) / 3), n - 1];
+    [...new Set(tickIdx)].forEach(i => {
+      svg += `<text x="${x(i).toFixed(1)}" y="${H - 14}" class="chart-xtick">${shortDate(labels[i])}</text>`;
+    });
+
+    // one path per series, skipping gaps
+    series.forEach(s => {
+      let d = '', open = false;
+      s.values.forEach((v, i) => {
+        if (v == null) { open = false; return; }
+        d += (open ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(v).toFixed(1) + ' ';
+        open = true;
+      });
+      if (d) svg += `<path d="${d.trim()}" fill="none" stroke="${s.color}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
+      s.values.forEach((v, i) => {
+        if (v == null) return;
+        const sel = selected === i;
+        svg += `<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="${sel ? 5.5 : 3.5}" fill="${s.color}"${sel ? ' stroke="#fafaf8" stroke-width="2"' : ''}/>`;
+      });
+    });
+
+    // invisible wide tap targets, one per x position
+    if (onSelect) {
+      labels.forEach((_, i) => {
+        svg += `<rect x="${(x(i) - plotW / (2 * Math.max(1, n - 1)) - 4).toFixed(1)}" y="${T}" width="${(plotW / Math.max(1, n - 1) + 8).toFixed(1)}" height="${plotH}" fill="transparent" onclick="${onSelect}(${i})"/>`;
+      });
+    }
+
+    svg += '</svg>';
+    if (yLabel) svg = `<div class="chart-ylabel">${yLabel}</div>` + svg;
+    return svg;
+  }
+
+  // ── BODYWEIGHT ──
+
+  const WEIGH_SLOTS = ['morning','afternoon','evening'];
+
+  function loadWeights(){
+    try { return JSON.parse(localStorage.getItem('theosWeight') || '{}'); }
+    catch { return {}; }
+  }
+  function saveWeights(w){ localStorage.setItem('theosWeight', JSON.stringify(w)); queueSync(); }
+
+  function defaultSlot(){
+    const h = new Date().getHours();
+    if (h < 12) return 'morning';
+    if (h < 17) return 'afternoon';
+    return 'evening';
+  }
+
+  function setWeight(value){
+    const w = loadWeights();
+    const date = gymState.date;
+    const slot = gymState.weightSlot || defaultSlot();
+    if (!w[date]) w[date] = {};
+    if (value === '' || value == null) delete w[date][slot];
+    else w[date][slot] = Number(value);
+    if (!Object.keys(w[date]).length) delete w[date];
+    saveWeights(w);
+    renderGym();
+  }
+
+  function pickWeightSlot(slot){
+    gymState.weightSlot = slot;
+    renderGym();
+  }
+
+  function weightBoxHTML(){
+    const w = loadWeights();
+    const day = w[gymState.date] || {};
+    const slot = gymState.weightSlot || defaultSlot();
+    const current = day[slot];
+    const logged = WEIGH_SLOTS.filter(s => day[s] != null)
+      .map(s => s[0].toUpperCase() + s.slice(1) + ' ' + fmtNum(day[s]) + 'kg').join(' · ');
+
+    return `<div class="weight-box">
+      <div class="weight-head">
+        <span class="weight-title">Bodyweight</span>
+        <button class="sync-btn" onclick="gymGo('weight')">History</button>
+      </div>
+      <div class="weight-row">
+        <input type="number" inputmode="decimal" step="0.1" placeholder="kg"
+               value="${current != null ? current : ''}" onchange="setWeight(this.value)"/>
+        <select onchange="pickWeightSlot(this.value)">
+          ${WEIGH_SLOTS.map(s => `<option value="${s}"${s === slot ? ' selected' : ''}>${s[0].toUpperCase() + s.slice(1)}</option>`).join('')}
+        </select>
+      </div>
+      ${logged ? `<div class="weight-logged">${logged}</div>` : ''}
+    </div>`;
+  }
+
+  function renderWeightHistory(root){
+    const w = loadWeights();
+    const dates = Object.keys(w).sort();
+    const filter = gymState.weightFilter || 'all';
+    const sel = gymState.weightSel;
+
+    const COLORS = { morning: '#1a4d2e', afternoon: '#e0a800', evening: '#52b788' };
+    const shown = filter === 'all' ? WEIGH_SLOTS : [filter];
+    const series = shown.map(s => ({
+      name: s,
+      color: COLORS[s],
+      values: dates.map(d => (w[d] && w[d][s] != null) ? w[d][s] : null)
+    })).filter(s => s.values.some(v => v != null));
+
+    let h = `<button class="gym-back" onclick="gymGo('session')">&lsaquo; Back</button>
+             <div class="screen-title" style="padding-top:6px">Bodyweight</div>`;
+
+    h += '<div class="chart-filters">';
+    [['all','All'], ...WEIGH_SLOTS.map(s => [s, s[0].toUpperCase() + s.slice(1)])].forEach(([v,l]) => {
+      h += `<button class="chart-filter${filter === v ? ' active' : ''}" onclick="setWeightFilter('${v}')">${l}</button>`;
+    });
+    h += '</div>';
+
+    if (!dates.length) {
+      h += '<div class="gym-nochart">Nothing logged yet</div>';
+      root.innerHTML = h;
+      return;
+    }
+
+    h += `<div class="chart-block">${lineChart({
+      series, labels: dates, yLabel: 'kg', selected: sel, onSelect: 'selectWeightPoint'
+    })}</div>`;
+
+    if (filter === 'all' && series.length > 1) {
+      h += '<div class="chart-legend">' + series.map(s =>
+        `<span class="legend-item"><i style="background:${s.color}"></i>${s.name}</span>`).join('') + '</div>';
+    }
+
+    if (sel != null && dates[sel]) {
+      const d = dates[sel];
+      const parts = WEIGH_SLOTS.filter(s => w[d][s] != null).map(s => `${s} ${fmtNum(w[d][s])}kg`).join(' · ');
+      h += `<div class="chart-callout"><strong>${shortDate(d)}</strong> — ${parts}</div>`;
+    }
+
+    h += '<div class="section-label" style="margin-top:22px">Log</div>';
+    [...dates].reverse().forEach(d => {
+      const parts = WEIGH_SLOTS.filter(s => w[d][s] != null)
+        .map(s => `<span class="wl-slot">${s.slice(0,3)}</span> ${fmtNum(w[d][s])}kg`).join('  ');
+      const i = dates.indexOf(d);
+      h += `<div class="gym-hist-row${sel === i ? ' selected' : ''}" onclick="selectWeightPoint(${i})">
+              <div class="gym-hist-date">${new Date(d + 'T00:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})}</div>
+              <div class="gym-hist-sets">${parts}</div>
+            </div>`;
+    });
+
+    root.innerHTML = h;
+  }
+
+  function setWeightFilter(f){ gymState.weightFilter = f; gymState.weightSel = null; renderGym(); }
+  function selectWeightPoint(i){ gymState.weightSel = (gymState.weightSel === i ? null : i); renderGym(); }
+
   // ── EXERCISE HISTORY ──
 
   function openExercise(key, name){
     gymState.exercise = { key, name };
+    gymState.histSel = null;
     gymState.view = 'exercise';
     renderGym();
   }
@@ -4250,45 +4609,65 @@ el.innerHTML = content;
     const { key, name } = gymState.exercise;
     const hist = exerciseHistory(key);
     const mode = modeForKey(key);
+    const sel = gymState.histSel;
+    const dates = hist.map(p => p.date);
+
     let h = `<button class="gym-back" onclick="gymGo('session')">&lsaquo; Back</button>
              <div class="screen-title" style="padding-top:6px">${escHtml(name)}</div>`;
 
-    if (mode === 'time') {
-      h += `<div class="gym-chart-block">
-              <div class="sync-label">Longest hold (sec)</div>
-              ${sparkline(hist.map(p => ({v:p.longest})), '#1a4d2e')}
+    if (!hist.length) {
+      h += '<div class="gym-nochart">Nothing logged yet</div>';
+      root.innerHTML = h;
+      return;
+    }
+
+    const primary = mode === 'time'
+      ? { label: 'Longest hold', unit: 'sec', values: hist.map(p => p.longest) }
+      : { label: 'Heaviest set', unit: 'kg',  values: hist.map(p => p.top) };
+    const secondary = mode === 'time'
+      ? { label: 'Total time',   unit: 'sec', values: hist.map(p => p.totalTime) }
+      : { label: 'Total volume', unit: 'kg',  values: hist.map(p => p.volume) };
+
+    [primary, secondary].forEach((s, idx) => {
+      h += `<div class="chart-block">
+              <div class="chart-title">${s.label} (${s.unit})</div>
+              ${lineChart({
+                series: [{ name: s.label, color: idx ? '#52b788' : '#1a4d2e', values: s.values }],
+                labels: dates,
+                yLabel: s.unit,
+                selected: sel,
+                onSelect: 'selectHistPoint'
+              })}
             </div>`;
-      h += `<div class="gym-chart-block">
-              <div class="sync-label">Total time (sec)</div>
-              ${sparkline(hist.map(p => ({v:p.totalTime})), '#52b788')}
-            </div>`;
-    } else {
-      h += `<div class="gym-chart-block">
-              <div class="sync-label">Heaviest set (kg)</div>
-              ${sparkline(hist.map(p => ({v:p.top})), '#1a4d2e')}
-            </div>`;
-      h += `<div class="gym-chart-block">
-              <div class="sync-label">Total volume (kg)</div>
-              ${sparkline(hist.map(p => ({v:p.volume})), '#52b788')}
+    });
+
+    if (sel != null && hist[sel]) {
+      const p = hist[sel];
+      h += `<div class="chart-callout">
+              <strong>${shortDate(p.date)}</strong> — ${setsSummary(p.sets, mode)}
             </div>`;
     }
 
     h += '<div class="section-label" style="margin-top:22px">Sessions</div>';
-    if (!hist.length) {
-      h += '<p class="sync-blurb">Nothing logged yet.</p>';
-    } else {
-      [...hist].reverse().forEach(p => {
-        const d = new Date(p.date + 'T00:00:00');
-        h += `<div class="gym-hist-row" onclick="gymJumpTo('${p.date}')">
-                <div class="gym-hist-date">${d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})}</div>
-                <div class="gym-hist-sets">${setsSummary(p.sets, mode)}</div>
-                <div class="gym-hist-meta">${mode === 'time'
-                    ? 'longest ' + fmtDur(p.longest) + ' · ' + fmtDur(p.totalTime) + ' total'
-                    : 'top ' + p.top + 'kg · ' + p.volume + 'kg total'}</div>
-              </div>`;
-      });
-    }
+    hist.map((p, i) => ({ p, i })).reverse().forEach(({ p, i }) => {
+      const d = new Date(p.date + 'T00:00:00');
+      h += `<div class="gym-hist-row${sel === i ? ' selected' : ''}" onclick="selectHistPoint(${i})">
+              <div class="gym-hist-date">${d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})}</div>
+              <div class="gym-hist-sets">${setsSummary(p.sets, mode)}</div>
+              <div class="gym-hist-meta">${mode === 'time'
+                  ? 'longest ' + fmtDur(p.longest) + ' · ' + fmtDur(p.totalTime) + ' total'
+                  : 'top ' + p.top + 'kg · ' + p.volume + 'kg total'}
+                <button class="hist-open" onclick="event.stopPropagation();gymJumpTo('${p.date}')">Open</button>
+              </div>
+            </div>`;
+    });
+
     root.innerHTML = h;
+  }
+
+  function selectHistPoint(i){
+    gymState.histSel = (gymState.histSel === i ? null : i);
+    renderGym();
   }
 
   function gymJumpTo(dateKey){
@@ -4416,6 +4795,16 @@ el.innerHTML = content;
         done: wk.filter(r => r.done).length,
         total: wk.length
       },
+      weight: (() => {
+        try {
+          const w = JSON.parse(localStorage.getItem('theosWeight') || '{}');
+          const days = Object.keys(w).sort();
+          if (!days.length) return null;
+          const last = w[days[days.length - 1]];
+          const slot = ['morning','afternoon','evening'].find(s => last[s] != null);
+          return slot ? { date: days[days.length - 1], slot, kg: last[slot] } : null;
+        } catch { return null; }
+      })(),
       month: {
         done: mo.filter(r => r.done).length,
         total: mo.length
