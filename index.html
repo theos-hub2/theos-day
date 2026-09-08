@@ -297,6 +297,88 @@
   border-radius: 4px;
   padding: 16px 18px;
 }
+.streak-head-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.streak-head-row .streak-header { margin-bottom: 0; }
+.streak-edit-btn {
+  padding: 5px 12px;
+  border: 1.5px solid var(--border);
+  background: transparent;
+  color: var(--green);
+  font-family: 'EB Garamond', serif;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border-radius: 20px;
+  cursor: pointer;
+}
+.streak-sched {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--muted);
+  margin-top: 2px;
+}
+.streak-unit-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+.streak-unit-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-right: 2px;
+}
+.streak-unit {
+  padding: 5px 12px;
+  border: 1.5px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  font-family: 'EB Garamond', serif;
+  font-size: 0.72rem;
+  font-weight: 600;
+  border-radius: 20px;
+  cursor: pointer;
+}
+.streak-unit.active { background: var(--green); border-color: var(--green); color: var(--white); }
+
+.streak-edit-row {
+  padding: 11px 12px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  margin-bottom: 8px;
+}
+.streak-edit-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.streak-edit-name { font-size: 0.9rem; font-weight: 600; color: var(--ink); }
+.streak-edit-obs { font-size: 0.7rem; color: var(--muted); flex-shrink: 0; }
+.streak-select {
+  width: 100%;
+  padding: 9px 10px;
+  border: 1.5px solid var(--border);
+  background: var(--off-white);
+  color: var(--ink);
+  font-family: 'EB Garamond', serif;
+  font-weight: 600;
+  outline: none;
+  border-radius: 3px;
+}
+
 .streak-header {
   font-size: 0.75rem;
   font-weight: 600;
@@ -335,6 +417,14 @@
 .streak-count::before {
   content: '🔥';
   font-size: 1rem;
+}
+.streak-per {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-align: right;
+  margin-top: 1px;
 }
 .streak-empty {
   text-align: center;
@@ -1905,7 +1995,10 @@
       </button>
       <div class="aims-body" id="aimsBody-banners">
         <div class="streak-block" id="streakBlock">
-          <div class="streak-header">Active Streaks</div>
+          <div class="streak-head-row">
+            <div class="streak-header">Active Streaks</div>
+            <button class="streak-edit-btn" id="streakEditBtn" onclick="toggleStreakEdit()">Edit</button>
+          </div>
           <div class="streak-list" id="streakList"></div>
         </div>
         <div class="chess-block" id="chessBlock">
@@ -2088,304 +2181,251 @@
   }
 
   // Calculate streaks
-  function calculateStreaks() {
+  // ── STREAKS ──
+  // Each habit carries its own schedule. Daily habits break the moment you miss
+  // a day; frequency habits are judged per week (or per fortnight), so rest days
+  // don't count against you.
+
+  function loadSchedules(){
+    try { return JSON.parse(localStorage.getItem('theosStreakSchedules') || '{}'); }
+    catch { return {}; }
+  }
+  function saveSchedules(s){ localStorage.setItem('theosStreakSchedules', JSON.stringify(s)); }
+
+  function medianOf(nums){
+    if (!nums.length) return 0;
+    const s = nums.slice().sort((a,b) => a-b);
+    const m = Math.floor(s.length/2);
+    return s.length % 2 ? s[m] : Math.round((s[m-1] + s[m]) / 2);
+  }
+
+  // weeks since a fixed Sunday, so fortnights line up consistently
+  function weekIndex(d){
+    const ws = weekStartOf(d);
+    return Math.round((ws - new Date(1970,0,4)) / (7*86400000));
+  }
+
+  // How the run is shown. The schedule decides whether a streak survives; the
+  // unit only decides how it reads. A daily habit can be counted in days, weeks
+  // or months; a weekly one can't sensibly be shown in days.
+  function defaultUnit(sch){ return sch.type === 'daily' ? 'days' : 'weeks'; }
+
+  function unitOptions(sch){
+    return sch.type === 'daily' ? ['days','weeks','months'] : ['weeks','months'];
+  }
+
+  function streakDisplay(n, sch){
+    const unit = sch.unit || defaultUnit(sch);
+    const perNative = sch.type === 'daily' ? 1 : (sch.type === 'biweekly' ? 14 : 7);
+    const spanDays = n * perNative;
+
+    if (unit === 'months') {
+      const m = Math.floor(spanDays / 30.44);
+      if (m >= 1) return { v: m, u: 'month' };
+    }
+    if (unit === 'months' || unit === 'weeks') {
+      const wk = Math.floor(spanDays / 7);
+      if (wk >= 1) return { v: wk, u: 'week' };
+    }
+    if (sch.type === 'daily') return { v: n, u: 'day' };
+    return { v: n, u: sch.type === 'biweekly' ? 'block' : 'week' };
+  }
+
+  function scheduleLabel(sch){
+    if (sch.type === 'daily') return 'every day';
+    if (sch.type === 'biweekly') return 'once every 2 weeks';
+    return sch.times === 1 ? 'once a week' : sch.times + '× per week';
+  }
+
+  function scheduleCode(sch){
+    if (sch.type === 'daily') return 'daily';
+    if (sch.type === 'biweekly') return 'b1';
+    return 'w' + sch.times;
+  }
+
+  function codeToSchedule(code){
+    if (code === 'daily') return { type:'daily' };
+    if (code === 'b1') return { type:'biweekly', times:1 };
+    return { type:'weekly', times: parseInt(code.slice(1)) || 1 };
+  }
+
+  // until you set one, guess from how often you've actually done it
+  function inferSchedule(median){
+    if (median >= 6) return { type:'daily' };
+    return { type:'weekly', times: Math.max(1, median) };
+  }
+
+  // every completed task, bucketed by day and by week
+  function streakData(){
     const data = loadData();
-    const taskNames = new Map();
-    
-    Object.values(data).forEach(day => {
-      if (day.tasks) {
-        day.tasks.forEach(task => {
-          const normalized = normalizeTaskName(task.text);
-          if (!taskNames.has(normalized)) {
-            taskNames.set(normalized, task.text);
-          }
-        });
-      }
-    });
-    
-    const streaks = {};
-    
-    taskNames.forEach((displayName, normalizedName) => {
-      let currentStreak = 0;
-      let checkDate = new Date();
-      
-      while (true) {
-        const dateKey = `${checkDate.getFullYear()}-${String(checkDate.getMonth()+1).padStart(2,'0')}-${String(checkDate.getDate()).padStart(2,'0')}`;
-        
-        const dayData = data[dateKey];
-        if (!dayData || !dayData.tasks) break;
-        
-        const hasTask = dayData.tasks.some(t => 
-          normalizeTaskName(t.text) === normalizedName && t.done
-        );
-        
-        if (hasTask) {
-          currentStreak++;
-        } else {
-          // If it's today, don't break — task might not be done yet
-          const todayStr = getTodayKey();
-          if (dateKey === todayStr) {
-            // Skip today, don't count it but don't break
-          } else {
-            break;
-          }
-        }
-        
-        checkDate.setDate(checkDate.getDate() - 1);
-      }
-      
-      if (currentStreak >= 3) {
-        streaks[displayName] = currentStreak;
-      }
-    });
-    
-    return streaks;
-  }
-
-// Get autocomplete suggestions
-  function getAutocompleteSuggestions(input) {
-    if (input.length < 2) return [];
-    
-    const normalized = normalizeTaskName(input);
-    const data = loadData();
-    const taskCounts = new Map();
-    
-    Object.values(data).forEach(day => {
-      if (day.tasks) {
-        day.tasks.forEach(task => {
-          const taskNormalized = normalizeTaskName(task.text);
-          taskCounts.set(taskNormalized, (taskCounts.get(taskNormalized) || 0) + 1);
-        });
-      }
-    });
-    
-    const suggestions = [];
-    const seenNormalized = new Set();
-    
-    Object.values(data).forEach(day => {
-      if (day.tasks) {
-        day.tasks.forEach(task => {
-          const taskNormalized = normalizeTaskName(task.text);
-          if (taskCounts.get(taskNormalized) >= 3 && 
-              taskNormalized.includes(normalized) &&
-              !seenNormalized.has(taskNormalized)) {
-            suggestions.push(task.text);
-            seenNormalized.add(taskNormalized);
-          }
-        });
-      }
-    });
-    
-    return suggestions.slice(0, 5);
-  }
-
-  // Autocomplete state
-  let selectedSuggestionIndex = -1;
-  let currentSuggestions = [];
-
-  // Handle task input change
-  function handleTaskInputChange(e) {
-    const input = e.target.value;
-    const dropdown = document.getElementById('autocompleteDropdown');
-    
-    currentSuggestions = getAutocompleteSuggestions(input);
-    selectedSuggestionIndex = -1;
-    
-    if (currentSuggestions.length > 0 && input.length >= 2) {
-      dropdown.innerHTML = '';
-      currentSuggestions.forEach((suggestion, idx) => {
-        const div = document.createElement('div');
-        div.className = 'autocomplete-item';
-        const inputLower = input.toLowerCase();
-        const suggestionLower = suggestion.toLowerCase();
-        const matchIndex = suggestionLower.indexOf(inputLower);
-        
-        if (matchIndex !== -1) {
-          const before = suggestion.substring(0, matchIndex);
-          const match = suggestion.substring(matchIndex, matchIndex + input.length);
-          const after = suggestion.substring(matchIndex + input.length);
-          div.innerHTML = `${escHtml(before)}<strong>${escHtml(match)}</strong>${escHtml(after)}`;
-        } else {
-          div.textContent = suggestion;
-        }
-        
-        div.onclick = () => {
-          document.getElementById('taskInput').value = suggestion;
-          dropdown.style.display = 'none';
-          currentSuggestions = [];
-        };
-        dropdown.appendChild(div);
+    const map = {};
+    Object.entries(data).forEach(([dateKey, day]) => {
+      if (!day.tasks) return;
+      const wk = ymd(weekStartOf(new Date(dateKey + 'T00:00:00')));
+      day.tasks.forEach(t => {
+        if (!t.done) return;
+        const norm = normalizeTaskName(t.text);
+        if (!map[norm]) map[norm] = { display: t.text, days: new Set(), weeks: {}, total: 0 };
+        map[norm].days.add(dateKey);
+        map[norm].weeks[wk] = (map[norm].weeks[wk] || 0) + 1;
+        map[norm].total++;
       });
-      dropdown.style.display = 'block';
-    } else {
-      dropdown.style.display = 'none';
-    }
+    });
+    return map;
   }
 
-  // Handle task input keydown
-  function handleTaskInputKeydown(e) {
-    const dropdown = document.getElementById('autocompleteDropdown');
-    
-    if (dropdown.style.display === 'block' && currentSuggestions.length > 0) {
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        selectedSuggestionIndex = Math.min(selectedSuggestionIndex + 1, currentSuggestions.length - 1);
-        updateAutocompleteSelection();
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        selectedSuggestionIndex = Math.max(selectedSuggestionIndex - 1, -1);
-        updateAutocompleteSelection();
-      } else if (e.key === 'Enter') {
-        if (selectedSuggestionIndex >= 0) {
-          e.preventDefault();
-          e.target.value = currentSuggestions[selectedSuggestionIndex];
-          dropdown.style.display = 'none';
-          currentSuggestions = [];
-          selectedSuggestionIndex = -1;
-          return;
-        }
-      } else if (e.key === 'Escape') {
-        dropdown.style.display = 'none';
-        currentSuggestions = [];
-        selectedSuggestionIndex = -1;
+  function scheduleFor(norm, info){
+    const saved = loadSchedules()[norm];
+    if (saved) return saved;
+    return inferSchedule(medianOf(Object.values(info.weeks)));
+  }
+
+  function runLength(info, sch){
+    const today = getTodayKey();
+
+    if (sch.type === 'daily') {
+      const d = new Date();
+      let n = 0, guard = 0;
+      while (guard++ < 2000) {
+        const k = ymd(d);
+        if (info.days.has(k)) n++;
+        else if (k === today) { /* today isn't a miss yet */ }
+        else break;
+        d.setDate(d.getDate() - 1);
       }
+      return n;
     }
-    
-    if (e.key === 'Enter' && !e.shiftKey) {
-      addTask();
+
+    const size = sch.type === 'biweekly' ? 2 : 1;
+    const need = sch.times || 1;
+    const perPeriod = {};
+    Object.entries(info.weeks).forEach(([wk, c]) => {
+      const idx = Math.floor(weekIndex(new Date(wk + 'T00:00:00')) / size);
+      perPeriod[idx] = (perPeriod[idx] || 0) + c;
+    });
+
+    const current = Math.floor(weekIndex(new Date()) / size);
+    let p = current, n = 0, guard = 0;
+    while (guard++ < 520) {
+      const c = perPeriod[p] || 0;
+      if (c >= need) n++;
+      else if (p === current) { /* period still in progress */ }
+      else break;
+      p--;
     }
+    return n;
   }
 
-  function updateAutocompleteSelection() {
-    const items = document.querySelectorAll('#autocompleteDropdown .autocomplete-item');
-    items.forEach((item, idx) => {
-      if (idx === selectedSuggestionIndex) {
-        item.classList.add('selected');
-      } else {
-        item.classList.remove('selected');
+  function calculateStreaks(){
+    const map = streakData();
+    const out = {};
+    Object.entries(map).forEach(([norm, info]) => {
+      const sch = scheduleFor(norm, info);
+      const n = runLength(info, sch);
+      const min = sch.type === 'daily' ? 3 : 2;
+      if (n >= min) {
+        const disp = streakDisplay(n, sch);
+        out[info.display] = { n, sch, label: scheduleLabel(sch), value: disp.v, unit: disp.u };
       }
     });
+    return out;
   }
 
-  // Calendar autocomplete handlers
-  let calSelectedSuggestionIndex = -1;
-  let calCurrentSuggestions = [];
+  let streakEditMode = false;
 
-  function handleCalTaskInputChange(e) {
-    const input = e.target.value;
-    const dropdown = document.getElementById('calAutocompleteDropdown');
-    
-    calCurrentSuggestions = getAutocompleteSuggestions(input);
-    calSelectedSuggestionIndex = -1;
-    
-    if (calCurrentSuggestions.length > 0 && input.length >= 2) {
-      dropdown.innerHTML = '';
-      calCurrentSuggestions.forEach((suggestion, idx) => {
-        const div = document.createElement('div');
-        div.className = 'autocomplete-item';
-        const inputLower = input.toLowerCase();
-        const suggestionLower = suggestion.toLowerCase();
-        const matchIndex = suggestionLower.indexOf(inputLower);
-        
-        if (matchIndex !== -1) {
-          const before = suggestion.substring(0, matchIndex);
-          const match = suggestion.substring(matchIndex, matchIndex + input.length);
-          const after = suggestion.substring(matchIndex + input.length);
-          div.innerHTML = `${escHtml(before)}<strong>${escHtml(match)}</strong>${escHtml(after)}`;
-        } else {
-          div.textContent = suggestion;
-        }
-        
-        div.onclick = () => {
-          document.getElementById('calTaskInput').value = suggestion;
-          dropdown.style.display = 'none';
-          calCurrentSuggestions = [];
-        };
-        dropdown.appendChild(div);
-      });
-      dropdown.style.display = 'block';
-    } else {
-      dropdown.style.display = 'none';
-    }
+  function toggleStreakEdit(){
+    streakEditMode = !streakEditMode;
+    renderStreaks();
   }
 
-  function handleCalTaskInputKeydown(e) {
-    const dropdown = document.getElementById('calAutocompleteDropdown');
-    
-    if (dropdown.style.display === 'block' && calCurrentSuggestions.length > 0) {
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        calSelectedSuggestionIndex = Math.min(calSelectedSuggestionIndex + 1, calCurrentSuggestions.length - 1);
-        updateCalAutocompleteSelection();
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        calSelectedSuggestionIndex = Math.max(calSelectedSuggestionIndex - 1, -1);
-        updateCalAutocompleteSelection();
-      } else if (e.key === 'Enter') {
-        if (calSelectedSuggestionIndex >= 0) {
-          e.preventDefault();
-          e.target.value = calCurrentSuggestions[calSelectedSuggestionIndex];
-          dropdown.style.display = 'none';
-          calCurrentSuggestions = [];
-          calSelectedSuggestionIndex = -1;
-          return;
-        }
-      } else if (e.key === 'Escape') {
-        dropdown.style.display = 'none';
-        calCurrentSuggestions = [];
-        calSelectedSuggestionIndex = -1;
-      }
-    }
-    
-    if (e.key === 'Enter' && !e.shiftKey) {
-      addCalTask();
-    }
+  function setSchedule(norm, code){
+    const s = loadSchedules();
+    const prevUnit = s[norm] && s[norm].unit;
+    const sch = codeToSchedule(code);
+    if (prevUnit && unitOptions(sch).includes(prevUnit)) sch.unit = prevUnit;
+    s[norm] = sch;
+    saveSchedules(s);
+    renderStreaks();
   }
 
-  function updateCalAutocompleteSelection() {
-    const items = document.querySelectorAll('#calAutocompleteDropdown .autocomplete-item');
-    items.forEach((item, idx) => {
-      if (idx === calSelectedSuggestionIndex) {
-        item.classList.add('selected');
-      } else {
-        item.classList.remove('selected');
-      }
-    });
+  function setStreakUnit(norm, unit){
+    const s = loadSchedules();
+    if (!s[norm]) {
+      const map = streakData();
+      s[norm] = scheduleFor(norm, map[norm] || { weeks:{} });
+    }
+    s[norm].unit = unit;
+    saveSchedules(s);
+    renderStreaks();
   }
 
-  // Close dropdowns when clicking outside
-  document.addEventListener('click', (e) => {
-    if (!e.target.closest('.add-row')) {
-      document.getElementById('autocompleteDropdown').style.display = 'none';
-      document.getElementById('calAutocompleteDropdown').style.display = 'none';
-      currentSuggestions = [];
-      calCurrentSuggestions = [];
-      selectedSuggestionIndex = -1;
-      calSelectedSuggestionIndex = -1;
-    }
-  });
-
-  // Render streaks
-  function renderStreaks() {
-    const streaks = calculateStreaks();
+  function renderStreaks(){
     const list = document.getElementById('streakList');
+    if (!list) return;
+    const btn = document.getElementById('streakEditBtn');
+    if (btn) btn.textContent = streakEditMode ? 'Done' : 'Edit';
+
+    if (streakEditMode) return renderStreakEditor(list);
+
+    const streaks = calculateStreaks();
+    const entries = Object.entries(streaks).sort((a,b) => b[1].n - a[1].n);
     list.innerHTML = '';
-    
-    const streakEntries = Object.entries(streaks).sort((a, b) => b[1] - a[1]);
-    
-    if (streakEntries.length === 0) {
-      list.innerHTML = '<div class="streak-empty">Complete the same task 3+ days in a row to start a streak!</div>';
-    } else {
-      streakEntries.forEach(([name, count]) => {
-        const div = document.createElement('div');
-        div.className = 'streak-item';
-        div.innerHTML = `
-          <span class="streak-name">${escHtml(name)}</span>
-          <span class="streak-count">${count} days</span>
-        `;
-        list.appendChild(div);
-      });
+
+    if (!entries.length) {
+      list.innerHTML = '<div class="streak-empty">No streaks going yet — tap Edit to set how often each habit should happen</div>';
+      return;
     }
+
+    entries.forEach(([name, s]) => {
+      const div = document.createElement('div');
+      div.className = 'streak-item';
+      div.innerHTML = `
+        <span class="streak-name">${escHtml(name)}<span class="streak-sched">${s.label}</span></span>
+        <span class="streak-count">${s.value} ${s.value === 1 ? s.unit : s.unit + 's'}</span>
+      `;
+      list.appendChild(div);
+    });
+  }
+
+  function renderStreakEditor(list){
+    const map = streakData();
+    const entries = Object.entries(map).sort((a,b) => b[1].total - a[1].total);
+    list.innerHTML = '';
+
+    if (!entries.length) {
+      list.innerHTML = '<div class="streak-empty">Complete some tasks first</div>';
+      return;
+    }
+
+    const opts = [
+      ['daily','Every day'],
+      ['w6','6× per week'], ['w5','5× per week'], ['w4','4× per week'],
+      ['w3','3× per week'], ['w2','2× per week'], ['w1','Once a week'],
+      ['b1','Once every 2 weeks']
+    ];
+
+    entries.forEach(([norm, info]) => {
+      const sch = scheduleFor(norm, info);
+      const code = scheduleCode(sch);
+      const median = medianOf(Object.values(info.weeks));
+      const div = document.createElement('div');
+      div.className = 'streak-edit-row';
+      div.innerHTML = `
+        <div class="streak-edit-top">
+          <span class="streak-edit-name">${escHtml(info.display)}</span>
+          <span class="streak-edit-obs">${info.total}× · ~${median}/wk</span>
+        </div>
+        <select class="streak-select" onchange="setSchedule('${norm.replace(/'/g,"\\'")}',this.value)">
+          ${opts.map(([v,l]) => `<option value="${v}"${v === code ? ' selected' : ''}>${l}</option>`).join('')}
+        </select>
+        <div class="streak-unit-row">
+          <span class="streak-unit-label">Count in</span>
+          ${unitOptions(sch).map(u => `<button class="streak-unit${(sch.unit || defaultUnit(sch)) === u ? ' active' : ''}"
+            onclick="setStreakUnit('${norm.replace(/'/g,"\\'")}','${u}')">${u[0].toUpperCase() + u.slice(1)}</button>`).join('')}
+        </div>
+      `;
+      list.appendChild(div);
+    });
   }
 
   const quotes = [
@@ -2635,17 +2675,175 @@
     }
   }
 
+  // ── TASK AUTOCOMPLETE ──
+  // Suggests task names you've used before, for the Today input and the
+  // calendar day view. Shared logic, two sets of elements.
+
+  let currentSuggestions = [];
+  let calCurrentSuggestions = [];
+  let suggestIndex = -1;
+  let calSuggestIndex = -1;
+
+  function pastTaskNames(){
+    const data = loadData();
+    const counts = new Map();
+    Object.values(data).forEach(day => {
+      if (!day.tasks) return;
+      day.tasks.forEach(t => {
+        const name = (t.text || '').trim();
+        if (!name) return;
+        const norm = normalizeTaskName(name);
+        if (!counts.has(norm)) counts.set(norm, { name, n: 0 });
+        counts.get(norm).n++;
+      });
+    });
+    return [...counts.values()].sort((a,b) => b.n - a.n).map(x => x.name);
+  }
+
+  function suggestionsFor(query, dayKey){
+    const q = (query || '').trim().toLowerCase();
+    if (!q) return [];
+    const day = dayKey ? loadData()[dayKey] : null;
+    const already = new Set((day && day.tasks ? day.tasks : []).map(t => normalizeTaskName(t.text)));
+    return pastTaskNames()
+      .filter(n => n.toLowerCase().includes(q) && n.toLowerCase() !== q)
+      .filter(n => !already.has(normalizeTaskName(n)))
+      .slice(0, 5);
+  }
+
+  function highlight(name, query){
+    const i = name.toLowerCase().indexOf(query.trim().toLowerCase());
+    if (i < 0) return escHtml(name);
+    const q = query.trim();
+    return escHtml(name.slice(0, i)) + '<strong>' + escHtml(name.slice(i, i + q.length)) + '</strong>' + escHtml(name.slice(i + q.length));
+  }
+
+  function paintDropdown(dropId, list, query, index, pickFn){
+    const box = document.getElementById(dropId);
+    if (!box) return;
+    if (!list.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
+    box.innerHTML = list.map((n, i) =>
+      `<div class="autocomplete-item${i === index ? ' selected' : ''}" onmousedown="event.preventDefault()" onclick="${pickFn}(${i})">${highlight(n, query)}</div>`
+    ).join('');
+    box.style.display = 'block';
+  }
+
+  // ── Today input ──
+
+  function handleTaskInputChange(){
+    const inp = document.getElementById('taskInput');
+    currentSuggestions = suggestionsFor(inp.value, todayKey);
+    suggestIndex = -1;
+    paintDropdown('autocompleteDropdown', currentSuggestions, inp.value, suggestIndex, 'pickSuggestion');
+  }
+
+  function pickSuggestion(i){
+    const inp = document.getElementById('taskInput');
+    if (currentSuggestions[i]) inp.value = currentSuggestions[i];
+    closeAutocomplete();
+    inp.focus();
+  }
+
+  function closeAutocomplete(){
+    currentSuggestions = [];
+    suggestIndex = -1;
+    const box = document.getElementById('autocompleteDropdown');
+    if (box) { box.style.display = 'none'; box.innerHTML = ''; }
+  }
+
+  function handleTaskInputKeydown(e){
+    if (!currentSuggestions.length) {
+      if (e.key === 'Enter') { e.preventDefault(); addTask(); }
+      return;
+    }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      suggestIndex = (suggestIndex + 1) % currentSuggestions.length;
+      paintDropdown('autocompleteDropdown', currentSuggestions, document.getElementById('taskInput').value, suggestIndex, 'pickSuggestion');
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      suggestIndex = (suggestIndex - 1 + currentSuggestions.length) % currentSuggestions.length;
+      paintDropdown('autocompleteDropdown', currentSuggestions, document.getElementById('taskInput').value, suggestIndex, 'pickSuggestion');
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (suggestIndex >= 0) pickSuggestion(suggestIndex);
+      else { closeAutocomplete(); addTask(); }
+    } else if (e.key === 'Escape') {
+      closeAutocomplete();
+    }
+  }
+
+  // ── Calendar day view input ──
+
+  function handleCalTaskInputChange(){
+    const inp = document.getElementById('calTaskInput');
+    calCurrentSuggestions = suggestionsFor(inp.value, selKey);
+    calSuggestIndex = -1;
+    paintDropdown('calAutocompleteDropdown', calCurrentSuggestions, inp.value, calSuggestIndex, 'pickCalSuggestion');
+  }
+
+  function pickCalSuggestion(i){
+    const inp = document.getElementById('calTaskInput');
+    if (calCurrentSuggestions[i]) inp.value = calCurrentSuggestions[i];
+    closeCalAutocomplete();
+    inp.focus();
+  }
+
+  function closeCalAutocomplete(){
+    calCurrentSuggestions = [];
+    calSuggestIndex = -1;
+    const box = document.getElementById('calAutocompleteDropdown');
+    if (box) { box.style.display = 'none'; box.innerHTML = ''; }
+  }
+
+  function handleCalTaskInputKeydown(e){
+    if (!calCurrentSuggestions.length) {
+      if (e.key === 'Enter') { e.preventDefault(); addCalTask(); }
+      return;
+    }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      calSuggestIndex = (calSuggestIndex + 1) % calCurrentSuggestions.length;
+      paintDropdown('calAutocompleteDropdown', calCurrentSuggestions, document.getElementById('calTaskInput').value, calSuggestIndex, 'pickCalSuggestion');
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      calSuggestIndex = (calSuggestIndex - 1 + calCurrentSuggestions.length) % calCurrentSuggestions.length;
+      paintDropdown('calAutocompleteDropdown', calCurrentSuggestions, document.getElementById('calTaskInput').value, calSuggestIndex, 'pickCalSuggestion');
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (calSuggestIndex >= 0) pickCalSuggestion(calSuggestIndex);
+      else { closeCalAutocomplete(); addCalTask(); }
+    } else if (e.key === 'Escape') {
+      closeCalAutocomplete();
+    }
+  }
+
+  // tapping elsewhere dismisses either dropdown
+  document.addEventListener('click', e => {
+    const ti = document.getElementById('taskInput');
+    const ci = document.getElementById('calTaskInput');
+    if (currentSuggestions.length && e.target !== ti) closeAutocomplete();
+    if (calCurrentSuggestions.length && e.target !== ci) closeCalAutocomplete();
+  });
+
 // Set up input event listeners
-  document.addEventListener('DOMContentLoaded', () => {
+  function bindTaskInputs(){
     const taskInput = document.getElementById('taskInput');
     const calTaskInput = document.getElementById('calTaskInput');
-    
-    taskInput.addEventListener('input', handleTaskInputChange);
-    taskInput.addEventListener('keydown', handleTaskInputKeydown);
-    
-    calTaskInput.addEventListener('input', handleCalTaskInputChange);
-    calTaskInput.addEventListener('keydown', handleCalTaskInputKeydown);
-  });
+    if (taskInput) {
+      taskInput.addEventListener('input', handleTaskInputChange);
+      taskInput.addEventListener('keydown', handleTaskInputKeydown);
+    }
+    if (calTaskInput) {
+      calTaskInput.addEventListener('input', handleCalTaskInputChange);
+      calTaskInput.addEventListener('keydown', handleCalTaskInputKeydown);
+    }
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bindTaskInputs);
+  } else {
+    bindTaskInputs();
+  }
 
   function addTask(){
     const inp=document.getElementById('taskInput');
@@ -4119,8 +4317,8 @@ el.innerHTML = content;
     const pct = total ? Math.round((done / total) * 100) : 0;
 
     const streaks = Object.entries(calculateStreaks() || {})
-      .map(([name, count]) => ({ name, count }))
-      .sort((a, b) => b.count - a.count)
+      .map(([name, s]) => ({ name, weeks: s.weeks, per: s.per, count: s.weeks, unit: 'w' }))
+      .sort((a, b) => b.weeks - a.weeks)
       .slice(0, 4);
 
     const res = loadGoals('year');
