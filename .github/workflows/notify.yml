@@ -2,11 +2,12 @@ name: theo's day notifications
 
 on:
   schedule:
-    - cron: '0 * * * *'
+    # hourly — the script decides whether it's a send hour in your timezone
+    - cron: '23 * * * *'
   workflow_dispatch:
     inputs:
       slot:
-        description: 'Send one now'
+        description: 'Send one now (morning or evening)'
         required: false
         default: 'morning'
 
@@ -18,7 +19,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
 
       - run: npm install web-push --no-save
 
@@ -26,6 +27,7 @@ jobs:
         env:
           GIST_OWNER: ${{ secrets.GIST_OWNER }}
           GIST_ID: ${{ secrets.GIST_ID }}
+          GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
           VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
           VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
           VAPID_SUBJECT: ${{ secrets.VAPID_SUBJECT }}
