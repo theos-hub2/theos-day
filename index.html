@@ -815,6 +815,13 @@
   color: var(--green);
 }
 
+.token-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: -6px;
+  margin-bottom: 14px;
+}
+
 .notif-row {
   display: grid;
   grid-template-columns: 1fr auto;
@@ -2054,6 +2061,10 @@
         <div class="sync-block">
           <label class="sync-label" for="gistToken">GitHub token</label>
           <input type="password" id="gistToken" placeholder="ghp_…" autocomplete="off" autocapitalize="off" spellcheck="false"/>
+          <div class="token-actions">
+            <button class="sync-btn" id="tokenToggle" onclick="toggleToken()">Show</button>
+            <button class="sync-btn" onclick="copyToken()">Copy</button>
+          </div>
 
           <label class="sync-label" for="gistId">Gist ID</label>
           <input type="text" id="gistId" placeholder="created automatically" autocomplete="off" autocapitalize="off" spellcheck="false"/>
@@ -4494,6 +4505,27 @@ el.innerHTML = content;
     const url = `https://gist.githubusercontent.com/${who}/${gistId}/raw/${GIST_FILE}`;
     document.getElementById('rawUrl').textContent = url;
     document.getElementById('rawUrlBlock').style.display = 'block';
+  }
+
+  function toggleToken(){
+    const inp = document.getElementById('gistToken');
+    const btn = document.getElementById('tokenToggle');
+    const showing = inp.type === 'text';
+    inp.type = showing ? 'password' : 'text';
+    btn.textContent = showing ? 'Show' : 'Hide';
+  }
+
+  function copyToken(){
+    const inp = document.getElementById('gistToken');
+    const val = inp.value || localStorage.getItem('theosGistToken') || '';
+    if (!val) return setSyncStatus('No token saved', 'err');
+    navigator.clipboard.writeText(val)
+      .then(() => setSyncStatus('Token copied', 'ok'))
+      .catch(() => {
+        inp.type = 'text';
+        document.getElementById('tokenToggle').textContent = 'Hide';
+        setSyncStatus('Copy blocked — select it from the field instead', 'err');
+      });
   }
 
   function copyRawUrl() {
