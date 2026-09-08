@@ -1202,6 +1202,42 @@
 }
 .gym-ex-chev.open { transform: rotate(90deg); }
 
+.gym-ex-last {
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-top: 2px;
+}
+.gym-ex-last.gym-now { color: var(--green); font-weight: 600; }
+.gym-swap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+  padding-top: 11px;
+  border-top: 1px solid var(--border);
+}
+.gym-swap-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-right: 2px;
+}
+.gym-swap-chip {
+  padding: 6px 11px;
+  border: 1.5px solid var(--border);
+  background: transparent;
+  color: var(--ink-mid);
+  font-family: 'EB Garamond', serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 20px;
+  cursor: pointer;
+}
+.gym-swap-chip:active { background: var(--green); border-color: var(--green); color: var(--white); }
+
 .gym-sets { padding: 4px 10px 16px; }
 .gym-set-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 .gym-set-n {
@@ -3915,6 +3951,90 @@ el.innerHTML = content;
     return v ? v + ' ' + ex.name : ex.name;
   }
 
+  // ── MUSCLE GROUPS ──
+  // Each exercise sits in one movement group. The group gives the grey target
+  // line, and everything else in the group becomes a substitute — so swaps stay
+  // correct without hand-writing pairs for every exercise.
+
+  const MUSCLE_GROUPS = {
+    chestPress:  { label: 'Chest, triceps, front delts', names: ['Bench Press','Incline Press','Decline Press','Chest Press','Floor Press','Push-Up','Dip','Landmine Press'] },
+    chestFly:    { label: 'Chest',                       names: ['Cable Fly','Pec Deck','DB Fly','Incline DB Fly','Cable Crossover','Svend Press'] },
+    backRow:     { label: 'Upper back, lats, biceps',    names: ['Row','Seated Cable Row','T-Bar Row','Pendlay Row','Meadows Row','Single-Arm DB Row','Inverted Row'] },
+    backPull:    { label: 'Lats, biceps',                names: ['Lat Pulldown','Pull-Up','Chin-Up','Assisted Pull-Up','Straight-Arm Pulldown'] },
+    shoulders:   { label: 'Shoulders, triceps',          names: ['Overhead Press','Seated DB Shoulder Press','Arnold Press'] },
+    sideDelts:   { label: 'Side delts',                  names: ['DB Lateral Raise','Cable Lateral Raise','Upright Row'] },
+    rearDelts:   { label: 'Rear delts, upper back',      names: ['Rear Delt Fly','Face Pull'] },
+    frontDelts:  { label: 'Front delts',                 names: ['Front Raise'] },
+    biceps:      { label: 'Biceps',                      names: ['DB Curl','Barbell Curl','EZ Bar Curl','Preacher Curl','Hammer Curl','Incline DB Curl','Concentration Curl','Cable Curl','Spider Curl','Reverse Curl'] },
+    triceps:     { label: 'Triceps',                     names: ['Tricep Pushdown','Overhead Tricep Extension','Skull Crusher','Close-Grip Bench Press','Tricep Kickback','Bench Dip'] },
+    quads:       { label: 'Quads, glutes',               names: ['Back Squat','Front Squat','Goblet Squat','Hack Squat','Leg Press','Split Squat','Bulgarian Split Squat','Walking Lunge','Reverse Lunge','Step-Up','Sissy Squat','Leg Extension'] },
+    hamstrings:  { label: 'Hamstrings',                  names: ['Romanian Deadlift','Stiff-Leg Deadlift','Leg Curl','Seated Leg Curl','Good Morning','Nordic Curl'] },
+    hinge:       { label: 'Posterior chain',             names: ['Deadlift','Sumo Deadlift','Trap Bar Deadlift','Rack Pull'] },
+    glutes:      { label: 'Glutes',                      names: ['Hip Thrust','Glute Bridge'] },
+    calves:      { label: 'Calves',                      names: ['Standing Calf Raise','Seated Calf Raise','Calf Press'] },
+    core:        { label: 'Core',                        names: ['Plank','Weighted Plank','Side Plank','Hollow Hold','Dead Bug','Ab Wheel','Cable Crunch','Crunch','Sit-Up','Russian Twist','Hanging Knee Raise','Hanging Leg Raise','Toes to Bar','Mountain Climber','Pallof Press'] },
+    lowerBack:   { label: 'Lower back',                  names: ['Back Extension'] },
+    traps:       { label: 'Traps',                       names: ['Shrug'] },
+    forearms:    { label: 'Forearms, grip',              names: ['Wrist Curl','Farmer Carry'] },
+    hips:        { label: 'Hips',                        names: ['Adductor Machine','Abductor Machine'] },
+    power:       { label: 'Power',                       names: ['Box Jump'] },
+    cardio:      { label: 'Conditioning',                names: ['Treadmill','Stationary Bike','Rowing Machine','Elliptical','Stair Climber','Jump Rope','Battle Ropes','Sled Push','Assault Bike'] }
+  };
+
+  const GROUP_OF = (() => {
+    const map = {};
+    Object.entries(MUSCLE_GROUPS).forEach(([key, g]) => {
+      g.names.forEach(n => { map[slug(n)] = key; });
+    });
+    return map;
+  })();
+
+  function exerciseMuscles(name){
+    const g = GROUP_OF[slug(name)];
+    return g ? MUSCLE_GROUPS[g].label : '';
+  }
+
+  // other exercises hitting the same thing, minus anything already in the session
+  function exerciseSubs(name, limit){
+    const g = GROUP_OF[slug(name)];
+    if (!g) return [];
+    const inSession = new Set(sessionPlan().map(e => slug(e.name)));
+    return MUSCLE_GROUPS[g].names
+      .filter(n => slug(n) !== slug(name) && !inSession.has(slug(n)))
+      .slice(0, limit || 3);
+  }
+
+  // swap in place, this session only — the routine is untouched
+  function swapExercise(base, newName){
+    const routine = loadRoutine();
+    let known = null;
+    Object.values(routine).concat(Object.values(DEFAULT_ROUTINE)).forEach(l => {
+      l.forEach(e => { if (!known && slug(e.name) === slug(newName)) known = e; });
+    });
+    writeSession(s => {
+      if (!s.plan) s.plan = [];
+      const i = s.plan.findIndex(e => slug(e.name) === base);
+      const old = i >= 0 ? s.plan[i] : null;
+      const timed = TIME_BASED.has(slug(newName));
+      const entry = known
+        ? JSON.parse(JSON.stringify(known))
+        : { name: newName,
+            sets: old ? old.sets : 3,
+            reps: old ? old.reps : (timed ? '30-60s' : '8-12'),
+            mode: timed ? 'time' : 'reps' };
+      if (i >= 0) s.plan[i] = entry; else s.plan.push(entry);
+      // drop any empty rows seeded against the old exercise
+      Object.keys(s.exercises).forEach(k => {
+        if ((k === base || k.indexOf(base + '--') === 0) && !s.exercises[k].some(x => x.r)) {
+          delete s.exercises[k];
+        }
+      });
+    });
+    rememberExercise(newName);
+    gymState.expanded = {};
+    renderGym();
+  }
+
   // ── SESSION CONTENTS ──
 
   function sessionPlan(){
@@ -4112,15 +4232,17 @@ el.innerHTML = content;
       const prev = lastEntry(key);
       const label = displayName(ex, variant);
       const mode = exMode(ex);
+      const muscles = exerciseMuscles(ex.name);
 
       h += `<div class="gym-ex${logged ? ' logged' : ''}">
               <div class="gym-ex-head" onclick="toggleExercise('${key}')">
                 <div class="gym-ex-main">
                   <div class="gym-ex-name">${escHtml(label)}</div>
                   <div class="gym-ex-sub">${ex.sets} × ${ex.reps}${
-                    logged ? ' · <span class="gym-now">' + setsSummary(sets, mode) + '</span>'
-                           : (prev ? ' · last: ' + setsSummary(prev.sets, mode) : '')
+                    muscles ? ' · ' + escHtml(muscles) : ''
                   }</div>
+                  ${logged ? '<div class="gym-ex-last gym-now">' + setsSummary(sets, mode) + '</div>'
+                           : (prev ? '<div class="gym-ex-last">last: ' + setsSummary(prev.sets, mode) + '</div>' : '')}
                 </div>
                 <span class="gym-ex-chev${open ? ' open' : ''}">&rsaquo;</span>
               </div>`;
@@ -4154,6 +4276,13 @@ el.innerHTML = content;
                 <button class="sync-btn" onclick="openExercise('${key}','${escHtml(label).replace(/'/g,"\\'")}')">History</button>
                 <button class="sync-btn gym-drop" onclick="removeSessionExercise('${base}')">Remove</button>
               </div>`;
+
+        const subs = exerciseSubs(ex.name, 3);
+        if (subs.length) {
+          h += '<div class="gym-swap"><span class="gym-swap-label">Swap for</span>' +
+               subs.map(n => `<button class="gym-swap-chip" onclick="swapExercise('${base}','${escHtml(n).replace(/'/g,"\\'")}')">${escHtml(n)}</button>`).join('') +
+               '</div>';
+        }
         h += '</div>';
       }
       h += '</div>';
