@@ -7,11 +7,15 @@ const webpush = require('web-push');
 const {
   GIST_OWNER,
   GIST_ID,
+  GIST_TOKEN,            // needs gist scope, so the job can record what it sent
   VAPID_PUBLIC_KEY,
   VAPID_PRIVATE_KEY,
   VAPID_SUBJECT = 'mailto:theo@example.com',
-  FORCE_SLOT              // 'morning' | 'evening' — for manual test runs
+  CATCHUP_HOURS = '3',   // how late a notification may still be delivered
+  FORCE_SLOT             // set by a manual run — sends the first one immediately
 } = process.env;
+
+const STATE_FILE = 'push-state.json';
 
 function raw(file) {
   return `https://gist.githubusercontent.com/${GIST_OWNER}/${GIST_ID}/raw/${file}?t=${Date.now()}`;
@@ -23,21 +27,44 @@ async function getJSON(file) {
   return res.json();
 }
 
-// the hour and minute right now, where the user actually is
+// date and clock where the user actually is
 function localNow(tz) {
-  const parts = new Intl.DateTimeFormat('en-GB', {
-    timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: false
   }).formatToParts(new Date());
-  const get = t => Number(parts.find(p => p.type === t).value);
-  return { hour: get('hour'), minute: get('minute') };
+  const get = t => parts.find(p => p.type === t).value;
+  return {
+    date: `${get('year')}-${get('month')}-${get('day')}`,
+    hour: Number(get('hour')) % 24,
+    minute: Number(get('minute'))
+  };
 }
 
-// which notifications are due this hour, in the user's own timezone
-function dueNow(cfg) {
+function toMinutes(hhmm) {
+  const [h, m] = String(hhmm || '00:00').split(':').map(Number);
+  return (h || 0) * 60 + (m || 0);
+}
+
+// Anything whose time has passed today and hasn't gone out yet. This is what
+// makes a late or skipped run recoverable — GitHub's scheduler regularly runs
+// 30-60 minutes behind, and without this those notifications are just lost.
+function dueNow(cfg, state) {
   const items = Array.isArray(cfg.items) ? cfg.items : [];
-  if (FORCE_SLOT) return items.slice(0, 1);          // manual run: send the first
-  const { hour } = localNow(cfg.tz || 'UTC');
-  return items.filter(n => Number(String(n.time || '').split(':')[0]) === hour);
+  if (FORCE_SLOT) return items.slice(0, 1);
+
+  const now = localNow(cfg.tz || 'UTC');
+  const nowMin = now.hour * 60 + now.minute;
+  const limit = Number(CATCHUP_HOURS) * 60;
+  const sent = (state && state.lastSent) || {};
+
+  return items.filter(n => {
+    const due = toMinutes(n.time);
+    const late = nowMin - due;
+    if (late < 0) return false;              // not yet
+    if (late > limit) return false;          // too stale to be useful
+    return sent[n.time] !== now.date;        // already sent today?
+  });
 }
 
 // {done} {total} {left} {pct} get filled from today's snapshot
@@ -49,6 +76,24 @@ function fillTemplate(message, snap) {
     .replace(/\{total\}/g, total)
     .replace(/\{left\}/g, Math.max(0, total - done))
     .replace(/\{pct\}/g, (snap && snap.pct) || 0);
+}
+
+// kept in its own gist file so the app and this job never overwrite each other
+async function saveState(state) {
+  if (!GIST_TOKEN) {
+    console.log('No GIST_TOKEN — cannot record what was sent, so catch-up is off.');
+    return;
+  }
+  const res = await fetch('https://api.github.com/gists/' + GIST_ID, {
+    method: 'PATCH',
+    headers: {
+      'Authorization': 'Bearer ' + GIST_TOKEN,
+      'Accept': 'application/vnd.github+json',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ files: { [STATE_FILE]: { content: JSON.stringify(state, null, 2) } } })
+  });
+  if (!res.ok) console.log('Could not save state: HTTP ' + res.status);
 }
 
 (async () => {
@@ -70,26 +115,32 @@ function fillTemplate(message, snap) {
     return;
   }
 
-  const due = dueNow(cfg);
+  let state = { lastSent: {} };
+  try { state = await getJSON(STATE_FILE); } catch { /* first run */ }
+  if (!state.lastSent) state.lastSent = {};
+
+  const now = localNow(cfg.tz || 'UTC');
+  const due = dueNow(cfg, state);
+
   if (!due.length) {
-    console.log(`Nothing due (tz ${cfg.tz}, local ${localNow(cfg.tz || 'UTC').hour}:00).`);
+    console.log(`Nothing due (tz ${cfg.tz}, local ${now.date} ${String(now.hour).padStart(2,'0')}:${String(now.minute).padStart(2,'0')}).`);
     return;
   }
 
   let snap = null;
-  try { snap = await getJSON('theos-day.json'); } catch { /* fine, template falls back to zeros */ }
+  try { snap = await getJSON('theos-day.json'); } catch { /* template falls back to zeros */ }
 
   webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
 
+  let changed = false;
   for (const item of due) {
-    const payload = JSON.stringify({
-      title: "theo's day",
-      body: fillTemplate(item.message, snap),
-      tag: 'td-' + (item.time || 'now')
-    });
+    const body = fillTemplate(item.message, snap);
+    const payload = JSON.stringify({ title: "theo's day", body, tag: 'td-' + (item.time || 'now') });
     try {
       await webpush.sendNotification(cfg.subscription, payload);
-      console.log(`Sent ${item.time}: ${fillTemplate(item.message, snap)}`);
+      const lateBy = (now.hour * 60 + now.minute) - toMinutes(item.time);
+      console.log(`Sent ${item.time} (${lateBy}m late): ${body}`);
+      if (!FORCE_SLOT) { state.lastSent[item.time] = now.date; changed = true; }
     } catch (err) {
       console.log(`Push failed: ${err.statusCode || ''} ${err.message}`);
       if (err.statusCode === 404 || err.statusCode === 410) {
@@ -98,4 +149,6 @@ function fillTemplate(message, snap) {
       process.exitCode = 1;
     }
   }
+
+  if (changed) await saveState(state);
 })();
