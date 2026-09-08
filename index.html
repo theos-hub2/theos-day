@@ -815,6 +815,40 @@
   color: var(--green);
 }
 
+.notif-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px 8px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.notif-row:last-of-type { border-bottom: none; }
+.notif-row input[type="time"] {
+  padding: 9px 10px;
+  border: 1.5px solid var(--green);
+  background: var(--white);
+  color: var(--ink);
+  font-family: 'EB Garamond', serif;
+  font-weight: 700;
+  outline: none;
+  border-radius: 3px;
+  margin-bottom: 0;
+}
+.notif-row textarea {
+  grid-column: 1 / -1;
+  width: 100%;
+  padding: 9px 10px;
+  border: 1.5px solid var(--border);
+  background: var(--white);
+  color: var(--ink);
+  font-family: 'EB Garamond', serif;
+  font-size: 16px;
+  line-height: 1.4;
+  outline: none;
+  border-radius: 3px;
+  resize: none;
+}
+
 /* ── SYNC SCREEN ── */
 .sync-blurb {
   font-size: 0.88rem;
@@ -2033,7 +2067,23 @@
           <div class="sync-status" id="syncStatus">Not set up yet</div>
         </div>
 
-        <div class="sync-block" id="rawUrlBlock" style="display:none">
+        <div class="section-label" style="margin-top:26px">Notifications</div>
+      <p class="sync-blurb">Add as many as you like. Times fire on the hour. You can use {done}, {total} and {left} in a message and they'll be filled in.</p>
+
+      <div class="sync-block">
+        <div id="notifList"></div>
+        <button class="sync-btn" onclick="addNotif()" style="width:100%;margin-top:4px">+ Add notification</button>
+
+        <div class="sync-actions" style="margin-top:14px">
+          <button class="btn btn-add" onclick="enableNotifications()">Enable</button>
+          <button class="sync-btn" onclick="testNotification()">Test</button>
+          <button class="sync-btn" onclick="disableNotifications()">Turn off</button>
+        </div>
+
+        <div class="sync-status" id="notifStatus">Not set up yet</div>
+      </div>
+
+      <div class="sync-block" id="rawUrlBlock" style="display:none">
           <div class="sync-label">Widget URL</div>
           <div class="sync-url" id="rawUrl"></div>
           <button class="sync-btn" onclick="copyRawUrl()">Copy</button>
@@ -4464,6 +4514,213 @@ el.innerHTML = content;
     }
   }
   initSyncScreen();
+
+  // ── PUSH NOTIFICATIONS ──
+  // The app subscribes and parks the subscription in the same gist. A scheduled
+  // GitHub Action reads it and does the actual sending.
+
+  const VAPID_PUBLIC_KEY = 'BF3vQRrQDxoogiljhwPLYg6o5W0DCQSCjuSYvSJSyTQi8vuXkWoGC5EV_8HszV3PsyU1a7Ealof_EvdD5Uv2xj8';
+  const PUSH_FILE = 'push.json';
+
+  function setNotifStatus(msg, cls){
+    const el = document.getElementById('notifStatus');
+    if (!el) return;
+    el.textContent = msg;
+    el.className = 'sync-status' + (cls ? ' ' + cls : '');
+  }
+
+  function urlBase64ToUint8Array(base64){
+    const padding = '='.repeat((4 - base64.length % 4) % 4);
+    const raw = atob((base64 + padding).replace(/-/g, '+').replace(/_/g, '/'));
+    return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+  }
+
+  function isStandalone(){
+    try {
+      if (window.navigator.standalone === true) return true;
+      return !!(window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+    } catch { return false; }
+  }
+
+  async function writePushConfig(payload){
+    const { token, gistId } = getSyncCfg();
+    if (!token || !gistId) throw new Error('set up sync first');
+    const resp = await fetch('https://api.github.com/gists/' + gistId, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': 'Bearer ' + token,
+        'Accept': 'application/vnd.github+json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ files: { [PUSH_FILE]: { content: JSON.stringify(payload, null, 2) } } })
+    });
+    if (!resp.ok) throw new Error('GitHub returned ' + resp.status);
+  }
+
+  const DEFAULT_NOTIFS = [
+    { time: '08:00', message: 'Morning — set out what you want to get done today.' },
+    { time: '19:00', message: '{done}/{total} done, {left} still open. Time to check in.' }
+  ];
+
+  function loadNotifs(){
+    let s = {};
+    try { s = JSON.parse(localStorage.getItem('theosNotif') || '{}'); } catch {}
+    if (!Array.isArray(s.items)) {
+      // carry over the old fixed morning/evening pair
+      if (s.morning || s.evening) {
+        s.items = [
+          { time: s.morning || '08:00', message: DEFAULT_NOTIFS[0].message },
+          { time: s.evening || '19:00', message: DEFAULT_NOTIFS[1].message }
+        ];
+      } else {
+        s.items = JSON.parse(JSON.stringify(DEFAULT_NOTIFS));
+      }
+    }
+    return s;
+  }
+
+  function saveNotifs(s){ localStorage.setItem('theosNotif', JSON.stringify(s)); }
+
+  // the sender runs hourly, so anything past the hour would be a promise it
+  // can't keep — snap to the hour and say so
+  function snapHour(t){ return (t || '08:00').split(':')[0].padStart(2,'0') + ':00'; }
+
+  function notifPrefs(){
+    const s = loadNotifs();
+    return { items: s.items, tz: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC' };
+  }
+
+  function renderNotifs(){
+    const box = document.getElementById('notifList');
+    if (!box) return;
+    const s = loadNotifs();
+    box.innerHTML = s.items.map((n, i) => `
+      <div class="notif-row">
+        <input type="time" step="3600" value="${n.time}" onchange="editNotif(${i},'time',this.value)"/>
+        <button class="gym-set-del" onclick="removeNotif(${i})">✕</button>
+        <textarea rows="2" placeholder="What should it say?"
+                  onchange="editNotif(${i},'message',this.value)">${escHtml(n.message)}</textarea>
+      </div>`).join('');
+  }
+
+  function editNotif(i, field, value){
+    const s = loadNotifs();
+    if (!s.items[i]) return;
+    s.items[i][field] = field === 'time' ? snapHour(value) : value;
+    saveNotifs(s);
+    renderNotifs();
+    pushNotifConfig(true);
+  }
+
+  function addNotif(){
+    const s = loadNotifs();
+    s.items.push({ time: '12:00', message: 'Check in.' });
+    saveNotifs(s);
+    renderNotifs();
+    pushNotifConfig(true);
+  }
+
+  function removeNotif(i){
+    const s = loadNotifs();
+    s.items.splice(i, 1);
+    saveNotifs(s);
+    renderNotifs();
+    pushNotifConfig(true);
+  }
+
+  // only re-uploads if notifications are already switched on
+  async function pushNotifConfig(quiet){
+    const s = loadNotifs();
+    if (!s.enabled) { if (!quiet) setNotifStatus('Tap Enable to switch these on'); return; }
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (!sub) return setNotifStatus('Tap Enable to re-subscribe', 'err');
+      const prefs = notifPrefs();
+      await writePushConfig({ enabled: true, subscription: sub.toJSON(), ...prefs, updated: new Date().toISOString() });
+      setNotifStatus('Saved — ' + prefs.items.length + ' notification' + (prefs.items.length === 1 ? '' : 's'), 'ok');
+    } catch (err) {
+      setNotifStatus('Could not save — ' + err.message, 'err');
+    }
+  }
+
+  async function enableNotifications(){
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      return setNotifStatus('This browser can\'t do push notifications', 'err');
+    }
+    if (!isStandalone()) {
+      return setNotifStatus('Open the app from your home screen first — iOS only allows this in an installed app', 'err');
+    }
+    try {
+      setNotifStatus('Asking permission…');
+      const perm = await Notification.requestPermission();
+      if (perm !== 'granted') return setNotifStatus('Permission denied — enable it in iOS Settings > Notifications', 'err');
+
+      const reg = await navigator.serviceWorker.ready;
+      let sub = await reg.pushManager.getSubscription();
+      if (!sub) {
+        sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+        });
+      }
+
+      const prefs = notifPrefs();
+      await writePushConfig({ enabled: true, subscription: sub.toJSON(), ...prefs, updated: new Date().toISOString() });
+      const s = loadNotifs(); s.enabled = true; saveNotifs(s);
+      setNotifStatus('On — ' + prefs.items.map(n => n.time).join(', ') + ' (' + prefs.tz + ')', 'ok');
+    } catch (err) {
+      setNotifStatus('Could not enable — ' + err.message, 'err');
+    }
+  }
+
+  async function unusedSaveNotifPrefs(){
+    const stored = JSON.parse(localStorage.getItem('theosNotif') || '{}');
+    const prefs = notifPrefs();
+    localStorage.setItem('theosNotif', JSON.stringify({ ...stored, ...prefs }));
+    if (!stored.enabled) return setNotifStatus('Times saved — tap Enable to switch them on');
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (!sub) return setNotifStatus('Tap Enable to re-subscribe', 'err');
+      await writePushConfig({ enabled: true, subscription: sub.toJSON(), ...prefs, updated: new Date().toISOString() });
+      setNotifStatus('Updated — ' + prefs.morning + ' and ' + prefs.evening, 'ok');
+    } catch (err) {
+      setNotifStatus('Could not save — ' + err.message, 'err');
+    }
+  }
+
+  async function disableNotifications(){
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) await sub.unsubscribe();
+      await writePushConfig({ enabled: false, updated: new Date().toISOString() });
+      const s = loadNotifs(); s.enabled = false; saveNotifs(s);
+      setNotifStatus('Off', 'ok');
+    } catch (err) {
+      setNotifStatus('Could not turn off — ' + err.message, 'err');
+    }
+  }
+
+  async function testNotification(){
+    if (Notification.permission !== 'granted') return setNotifStatus('Enable notifications first', 'err');
+    const reg = await navigator.serviceWorker.ready;
+    reg.showNotification("theo's day", {
+      body: 'Notifications are working.',
+      icon: './icon-192.png',
+      tag: 'test'
+    });
+    setNotifStatus('Sent a test notification', 'ok');
+  }
+
+  function initNotifScreen(){
+    renderNotifs();
+    const s = loadNotifs();
+    if (s.enabled) setNotifStatus('On — ' + s.items.map(n => n.time).join(', '), 'ok');
+    else if (!isStandalone()) setNotifStatus('Open from your home screen to enable');
+  }
+  initNotifScreen();
 
   // ── SERVICE WORKER ──
   // Needs HTTPS (or localhost). Silently does nothing if opened as a file://.

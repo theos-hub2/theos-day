@@ -1,7 +1,7 @@
 /* theo's day — service worker
    Bump CACHE_VERSION whenever you change index.html so the new version installs. */
 
-const CACHE_VERSION = 'v17';
+const CACHE_VERSION = 'v19';
 const SHELL_CACHE = `td-shell-${CACHE_VERSION}`;
 const FONT_CACHE = 'td-fonts';
 
@@ -85,6 +85,37 @@ function staleWhileRevalidate(req, cacheName) {
     })
   );
 }
+
+// ── PUSH NOTIFICATIONS ──
+
+self.addEventListener('push', event => {
+  let data = { title: "theo's day", body: 'Time to check in' };
+  try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}
+
+  event.waitUntil(
+    self.registration.showNotification(data.title, {
+      body: data.body,
+      icon: './icon-192.png',
+      badge: './icon-192.png',
+      tag: data.tag || 'theos-day',
+      renotify: true,
+      data: { url: data.url || './' }
+    })
+  );
+});
+
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  const target = (event.notification.data && event.notification.data.url) || './';
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+      for (const client of list) {
+        if ('focus' in client) return client.focus();
+      }
+      if (self.clients.openWindow) return self.clients.openWindow(target);
+    })
+  );
+});
 
 // Allow the page to trigger an immediate update
 self.addEventListener('message', event => {
