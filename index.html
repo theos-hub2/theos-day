@@ -324,6 +324,35 @@
   color: var(--muted);
   margin-top: 2px;
 }
+.streak-search {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1.5px solid var(--border);
+  background: var(--white);
+  color: var(--ink);
+  font-family: 'EB Garamond', serif;
+  font-size: 16px;
+  outline: none;
+  border-radius: 3px;
+  margin-bottom: 12px;
+}
+.streak-search::placeholder { color: var(--muted); }
+.streak-more {
+  width: 100%;
+  margin-top: 4px;
+  padding: 11px;
+  border: 1.5px solid var(--border);
+  background: transparent;
+  color: var(--green);
+  font-family: 'EB Garamond', serif;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
 .streak-unit-row {
   display: flex;
   align-items: center;
@@ -1167,6 +1196,8 @@
 }
 .gym-chip.scheduled { border-color: var(--green-light); }
 .gym-chip.active { background: var(--green); border-color: var(--green); color: var(--white); }
+.gym-rest-chip { flex: 0 0 auto; padding-left: 10px; padding-right: 10px; }
+
 .gym-rest {
   margin-top: 26px;
   padding: 24px 18px;
@@ -2470,6 +2501,7 @@
   function defaultUnit(sch){ return sch.type === 'daily' ? 'days' : 'weeks'; }
 
   function unitOptions(sch){
+    if (sch.type === 'none') return [];
     return sch.type === 'daily' ? ['days','weeks','months'] : ['weeks','months'];
   }
 
@@ -2491,28 +2523,29 @@
   }
 
   function scheduleLabel(sch){
+    if (sch.type === 'none') return 'not tracked';
     if (sch.type === 'daily') return 'every day';
     if (sch.type === 'biweekly') return 'once every 2 weeks';
     return sch.times === 1 ? 'once a week' : sch.times + '× per week';
   }
 
   function scheduleCode(sch){
+    if (sch.type === 'none') return 'none';
     if (sch.type === 'daily') return 'daily';
     if (sch.type === 'biweekly') return 'b1';
     return 'w' + sch.times;
   }
 
   function codeToSchedule(code){
+    if (code === 'none') return { type:'none' };
     if (code === 'daily') return { type:'daily' };
     if (code === 'b1') return { type:'biweekly', times:1 };
     return { type:'weekly', times: parseInt(code.slice(1)) || 1 };
   }
 
-  // until you set one, guess from how often you've actually done it
-  function inferSchedule(median){
-    if (median >= 6) return { type:'daily' };
-    return { type:'weekly', times: Math.max(1, median) };
-  }
+  // Everything starts as a daily streak. Guessing from history was clever but
+  // opaque — you couldn't tell what the app had decided or why.
+  function inferSchedule(){ return { type: 'daily' }; }
 
   // every completed task, bucketed by day and by week
   function streakData(){
@@ -2534,9 +2567,7 @@
   }
 
   function scheduleFor(norm, info){
-    const saved = loadSchedules()[norm];
-    if (saved) return saved;
-    return inferSchedule(medianOf(Object.values(info.weeks)));
+    return loadSchedules()[norm] || inferSchedule();
   }
 
   function runLength(info, sch){
@@ -2580,6 +2611,7 @@
     const out = {};
     Object.entries(map).forEach(([norm, info]) => {
       const sch = scheduleFor(norm, info);
+      if (sch.type === 'none') return;          // deliberately not tracked
       const n = runLength(info, sch);
       const min = sch.type === 'daily' ? 3 : 2;
       if (n >= min) {
@@ -2594,6 +2626,8 @@
 
   function toggleStreakEdit(){
     streakEditMode = !streakEditMode;
+    streakEditExpanded = false;
+    streakEditQuery = '';
     renderStreaks();
   }
 
@@ -2604,7 +2638,7 @@
     if (prevUnit && unitOptions(sch).includes(prevUnit)) sch.unit = prevUnit;
     s[norm] = sch;
     saveSchedules(s);
-    renderStreaks();
+    if (streakEditMode) renderStreakRows(); else renderStreaks();
   }
 
   function setStreakUnit(norm, unit){
@@ -2615,7 +2649,7 @@
     }
     s[norm].unit = unit;
     saveSchedules(s);
-    renderStreaks();
+    if (streakEditMode) renderStreakRows(); else renderStreaks();
   }
 
   function renderStreaks(){
@@ -2646,45 +2680,93 @@
     });
   }
 
-  function renderStreakEditor(list){
-    const map = streakData();
-    const entries = Object.entries(map).sort((a,b) => b[1].total - a[1].total);
-    list.innerHTML = '';
+  let streakEditExpanded = false;
+  let streakEditQuery = '';
 
-    if (!entries.length) {
-      list.innerHTML = '<div class="streak-empty">Complete some tasks first</div>';
+  const STREAK_OPTIONS = [
+    ['daily','Every day'],
+    ['w6','6× per week'], ['w5','5× per week'], ['w4','4× per week'],
+    ['w3','3× per week'], ['w2','2× per week'], ['w1','Once a week'],
+    ['b1','Once every 2 weeks'],
+    ['none','No streak']
+  ];
+
+  const STREAK_MIN_COUNT = 3;   // done fewer times than this? not a habit yet
+
+  function streakEditable(){
+    const map = streakData();
+    return Object.entries(map)
+      .filter(([, info]) => info.total >= STREAK_MIN_COUNT)
+      .sort((a, b) => b[1].total - a[1].total);
+  }
+
+  function renderStreakEditor(list){
+    list.innerHTML = `
+      <input type="text" class="streak-search" id="streakSearch" placeholder="Search tasks…"
+             value="${escHtml(streakEditQuery)}" autocomplete="off"
+             oninput="streakSearch(this.value)"/>
+      <div id="streakEditRows"></div>`;
+    renderStreakRows();
+  }
+
+  // rows live in their own container so typing in the search box doesn't
+  // rebuild — and steal focus from — the input itself
+  function renderStreakRows(){
+    const box = document.getElementById('streakEditRows');
+    if (!box) return;
+
+    const all = streakEditable();
+    const q = streakEditQuery.trim().toLowerCase();
+    const matching = q ? all.filter(([, info]) => info.display.toLowerCase().includes(q)) : all;
+
+    if (!all.length) {
+      box.innerHTML = `<div class="streak-empty">Nothing done ${STREAK_MIN_COUNT} times yet</div>`;
+      return;
+    }
+    if (!matching.length) {
+      box.innerHTML = '<div class="streak-empty">No tasks match that</div>';
       return;
     }
 
-    const opts = [
-      ['daily','Every day'],
-      ['w6','6× per week'], ['w5','5× per week'], ['w4','4× per week'],
-      ['w3','3× per week'], ['w2','2× per week'], ['w1','Once a week'],
-      ['b1','Once every 2 weeks']
-    ];
+    const showAll = streakEditExpanded || !!q;
+    const shown = showAll ? matching : matching.slice(0, 7);
+    const hidden = matching.length - shown.length;
 
-    entries.forEach(([norm, info]) => {
+    box.innerHTML = shown.map(([norm, info]) => {
       const sch = scheduleFor(norm, info);
       const code = scheduleCode(sch);
       const median = medianOf(Object.values(info.weeks));
-      const div = document.createElement('div');
-      div.className = 'streak-edit-row';
-      div.innerHTML = `
-        <div class="streak-edit-top">
-          <span class="streak-edit-name">${escHtml(info.display)}</span>
-          <span class="streak-edit-obs">${info.total}× · ~${median}/wk</span>
-        </div>
-        <select class="streak-select" onchange="setSchedule('${norm.replace(/'/g,"\\'")}',this.value)">
-          ${opts.map(([v,l]) => `<option value="${v}"${v === code ? ' selected' : ''}>${l}</option>`).join('')}
-        </select>
-        <div class="streak-unit-row">
-          <span class="streak-unit-label">Count in</span>
-          ${unitOptions(sch).map(u => `<button class="streak-unit${(sch.unit || defaultUnit(sch)) === u ? ' active' : ''}"
-            onclick="setStreakUnit('${norm.replace(/'/g,"\\'")}','${u}')">${u[0].toUpperCase() + u.slice(1)}</button>`).join('')}
-        </div>
-      `;
-      list.appendChild(div);
-    });
+      const units = unitOptions(sch);
+      return `
+        <div class="streak-edit-row">
+          <div class="streak-edit-top">
+            <span class="streak-edit-name">${escHtml(info.display)}</span>
+            <span class="streak-edit-obs">${info.total}× · ~${median}/wk</span>
+          </div>
+          <select class="streak-select" onchange="setSchedule('${norm.replace(/'/g,"\\'")}',this.value)">
+            ${STREAK_OPTIONS.map(([v,l]) => `<option value="${v}"${v === code ? ' selected' : ''}>${l}</option>`).join('')}
+          </select>
+          ${units.length ? `<div class="streak-unit-row">
+            <span class="streak-unit-label">Count in</span>
+            ${units.map(u => `<button class="streak-unit${(sch.unit || defaultUnit(sch)) === u ? ' active' : ''}"
+              onclick="setStreakUnit('${norm.replace(/'/g,"\\'")}','${u}')">${u[0].toUpperCase() + u.slice(1)}</button>`).join('')}
+          </div>` : ''}
+        </div>`;
+    }).join('');
+
+    if (hidden > 0) {
+      box.innerHTML += `<button class="streak-more" onclick="expandStreakEditor()">See ${hidden} more</button>`;
+    }
+  }
+
+  function streakSearch(v){
+    streakEditQuery = v;
+    renderStreakRows();
+  }
+
+  function expandStreakEditor(){
+    streakEditExpanded = true;
+    renderStreakRows();
   }
 
   const quotes = [
@@ -3742,10 +3824,10 @@ el.innerHTML = content;
     ],
     Lower: [
       { name:'Back Squat',          sets:4, reps:'6-10', variants:['Barbell','Smith','Leg Press'] },
-      { name:'Romanian Deadlift',   sets:3, reps:'8-10' },
-      { name:'Walking Lunge',       sets:3, reps:'10-12' },
+      { name:'Romanian Deadlift',   sets:3, reps:'8-10', variants:['Barbell','DB'] },
+      { name:'Walking Lunge',       sets:3, reps:'10-12', variants:['DB','Barbell','Bodyweight'] },
       { name:'Leg Curl',            sets:3, reps:'10-12' },
-      { name:'Standing Calf Raise', sets:4, reps:'12-15' },
+      { name:'Standing Calf Raise', sets:4, reps:'12-15', variants:['Machine','Smith','DB'] },
       { name:'Weighted Plank',      sets:3, reps:'30-60s', mode:'time' }
     ],
     Push: [
@@ -3769,7 +3851,7 @@ el.innerHTML = content;
       { name:'Hip Thrust',            sets:3, reps:'10-12', variants:['Barbell','Machine','Bodyweight'] },
       { name:'Bulgarian Split Squat', sets:3, reps:'10 ea' },
       { name:'Leg Curl',              sets:3, reps:'10-12' },
-      { name:'Seated Calf Raise',     sets:4, reps:'15' },
+      { name:'Seated Calf Raise',     sets:4, reps:'15', variants:['Machine','Barbell'] },
       { name:'Cable Crunch',          sets:3, reps:'15' }
     ]
   };
@@ -3875,7 +3957,7 @@ el.innerHTML = content;
     view: 'session',
     date: null,
     weekStart: null,
-    workout: null,
+    workout: undefined,   // undefined = not picked yet; null = set to rest
     exercise: null,
     expanded: {},
     suggest: []
@@ -3884,7 +3966,7 @@ el.innerHTML = content;
   function gymInit(){
     if (!gymState.date) gymState.date = getTodayKey();
     if (!gymState.weekStart) gymState.weekStart = ymd(weekStartOf(new Date()));
-    if (gymState.workout === null) gymState.workout = defaultWorkoutFor(gymState.date);
+    if (gymState.workout === undefined) gymState.workout = defaultWorkoutFor(gymState.date);
   }
 
   function scheduledFor(dateKey){
@@ -3920,6 +4002,88 @@ el.innerHTML = content;
   // ── VARIANTS ──
   // storage key is the exercise plus its variant, so each keeps its own history
 
+  // Equipment options per exercise, applied wherever that exercise appears —
+  // including routines you saved before these existed. An exercise with its own
+  // `variants` overrides this; an explicitly empty list means "no variants".
+  const VARIANT_DEFAULTS = {
+    // chest
+    'bench-press':        ['Barbell','DB','Machine','Smith'],
+    'incline-press':      ['Barbell','DB','Machine','Smith'],
+    'decline-press':      ['Barbell','DB','Machine'],
+    'chest-press':        ['Machine','Smith'],
+    'floor-press':        ['Barbell','DB'],
+    'dip':                ['Bodyweight','Weighted','Assisted'],
+    'push-up':            ['Bodyweight','Weighted','Incline'],
+    'cable-fly':          ['High','Mid','Low'],
+    'cable-crossover':    ['High','Mid','Low'],
+    'db-fly':             ['Flat','Incline'],
+    // back
+    'row':                ['Barbell','DB','Chest-Supported','Smith','Machine'],
+    'seated-cable-row':   ['Wide','Neutral','Close'],
+    'lat-pulldown':       ['Wide','Neutral','Close','Reverse'],
+    'pull-up':            ['Bodyweight','Weighted','Assisted'],
+    'chin-up':            ['Bodyweight','Weighted','Assisted'],
+    't-bar-row':          ['Machine','Landmine'],
+    'straight-arm-pulldown': ['Bar','Rope'],
+    'shrug':              ['Barbell','DB','Machine','Smith'],
+    // shoulders
+    'overhead-press':     ['Barbell','DB','Machine','Smith'],
+    'seated-db-shoulder-press': ['DB','Machine'],
+    'db-lateral-raise':   ['DB','Cable','Machine'],
+    'front-raise':        ['DB','Cable','Plate'],
+    'rear-delt-fly':      ['DB','Cable','Machine'],
+    'face-pull':          ['Rope','Band'],
+    'upright-row':        ['Barbell','EZ Bar','DB','Cable'],
+    // arms
+    'overhead-tricep-extension': ['Cable','EZ Bar','Barbell','DB'],
+    'tricep-pushdown':    ['Rope','Bar','V-Bar','Single-Arm'],
+    'skull-crusher':      ['EZ Bar','Barbell','DB'],
+    'tricep-kickback':    ['DB','Cable'],
+    'preacher-curl':      ['EZ Bar','Barbell','DB','Machine','Cable'],
+    'db-curl':            ['DB','Cable'],
+    'barbell-curl':       ['Barbell','EZ Bar'],
+    'ez-bar-curl':        ['EZ Bar','Barbell'],
+    'hammer-curl':        ['DB','Cable','Rope'],
+    'cable-curl':         ['Bar','Rope','Single-Arm'],
+    'incline-db-curl':    ['DB','Cable'],
+    'concentration-curl': ['DB','Cable'],
+    'spider-curl':        ['EZ Bar','DB'],
+    'reverse-curl':       ['EZ Bar','Barbell','Cable'],
+    'wrist-curl':         ['Barbell','DB','Cable'],
+    // legs
+    'back-squat':         ['Barbell','Smith','Hack'],
+    'front-squat':        ['Barbell','Smith','Goblet'],
+    'romanian-deadlift':  ['Barbell','DB'],
+    'stiff-leg-deadlift': ['Barbell','DB'],
+    'deadlift':           ['Barbell','Trap Bar','Smith'],
+    'good-morning':       ['Barbell','Smith'],
+    'split-squat':        ['DB','Barbell','Smith','Bodyweight'],
+    'bulgarian-split-squat': ['DB','Barbell','Smith','Bodyweight'],
+    'walking-lunge':      ['DB','Barbell','Bodyweight'],
+    'reverse-lunge':      ['DB','Barbell','Bodyweight'],
+    'step-up':            ['DB','Barbell','Bodyweight'],
+    'leg-curl':           ['Lying','Seated','Standing'],
+    'hip-thrust':         ['Barbell','Machine','Bodyweight'],
+    'glute-bridge':       ['Barbell','Bodyweight'],
+    'standing-calf-raise':['Machine','Smith','DB'],
+    'seated-calf-raise':  ['Machine','Barbell'],
+    'calf-press':         ['Leg Press','Machine'],
+    // core & carries
+    'cable-crunch':       ['Rope','Bar'],
+    'crunch':             ['Bodyweight','Weighted','Machine'],
+    'sit-up':             ['Bodyweight','Weighted','Decline'],
+    'russian-twist':      ['Bodyweight','Weighted'],
+    'hanging-knee-raise': ['Bodyweight','Weighted'],
+    'hanging-leg-raise':  ['Bodyweight','Weighted'],
+    'farmer-carry':       ['DB','Trap Bar','Kettlebell']
+  };
+
+  function variantsFor(ex){
+    if (!ex) return null;
+    if (Array.isArray(ex.variants)) return ex.variants.length ? ex.variants : null;
+    return VARIANT_DEFAULTS[slug(ex.name)] || null;
+  }
+
   function exKey(ex, variant){
     const base = slug(ex.name);
     const v = variant !== undefined ? variant : chosenVariant(ex);
@@ -3928,7 +4092,8 @@ el.innerHTML = content;
 
   // last variant used for this exercise, else the first option
   function chosenVariant(ex){
-    if (!ex.variants || !ex.variants.length) return null;
+    const list = variantsFor(ex);
+    if (!list) return null;
     const sess = currentSession();
     const base = slug(ex.name);
     if (sess && sess.variants && sess.variants[base]) return sess.variants[base];
@@ -3936,13 +4101,35 @@ el.innerHTML = content;
     const keys = Object.keys(log).filter(k => k <= gymState.date).sort().reverse();
     for (const k of keys) {
       const v = log[k].variants && log[k].variants[base];
-      if (v && ex.variants.includes(v)) return v;
+      if (v && list.includes(v)) return v;
     }
-    return ex.variants[0];
+    return list[0];
   }
 
   function pickVariant(base, variant){
+    const ex = sessionPlan().find(e => slug(e.name) === base);
+    const oldKey = ex ? exKey(ex) : null;
+
     writeSession(s => { s.variants[base] = variant; });
+
+    if (ex) {
+      const newKey = exKey(ex, variant);
+      // keep the panel open across the switch
+      if (oldKey && gymState.expanded[oldKey]) {
+        delete gymState.expanded[oldKey];
+        gymState.expanded[newKey] = true;
+      }
+      // and give the new variant its own rows, seeded from its own history
+      const sess = currentSession();
+      const existing = sess && sess.exercises[newKey];
+      if (!existing || !existing.length) {
+        const prev = lastEntry(newKey);
+        const seed = prev
+          ? prev.sets.filter(x => x.r).map(x => ({ w: x.w, r: '' }))
+          : Array.from({ length: ex.sets || 3 }, () => ({ w: '', r: '' }));
+        writeSession(s => { s.exercises[newKey] = seed; });
+      }
+    }
     renderGym();
   }
 
@@ -4048,7 +4235,8 @@ el.innerHTML = content;
     if (usePlan && sess.exercises) {
       const have = new Set();
       list.forEach(e => {
-        if (e.variants) e.variants.forEach(v => have.add(exKey(e, v)));
+        const vs = variantsFor(e);
+        if (vs) vs.forEach(v => have.add(exKey(e, v)));
         have.add(exKey(e, null));
         have.add(slug(e.name));
       });
@@ -4121,6 +4309,19 @@ el.innerHTML = content;
   }
 
   function gymToday(){ gymPickDay(getTodayKey()); gymState.weekStart = ymd(weekStartOf(new Date())); renderGym(); }
+
+  // Clears the day back to rest. Never deletes a session that has real sets in
+  // it — that just gets hidden, and reappears if you pick the workout again.
+  function setRestDay(){
+    if (!sessionLogged(gymState.date)) {
+      const log = loadGymLog();
+      if (log[gymState.date]) { delete log[gymState.date]; saveGymLog(log); }
+    }
+    gymState.workout = null;
+    gymState.expanded = {};
+    gymState.suggest = [];
+    renderGym();
+  }
 
   function pickWorkout(w){
     // an untouched session shouldn't pin the day to a workout you tapped by mistake
@@ -4195,12 +4396,16 @@ el.innerHTML = content;
       const cls = 'gym-chip' + (w === gymState.workout ? ' active' : '') + (w === sched ? ' scheduled' : '');
       h += `<button class="${cls}" onclick="pickWorkout('${w}')">${w}</button>`;
     });
+    h += `<button class="gym-chip gym-rest-chip${gymState.workout ? '' : ' active'}${sched ? '' : ' scheduled'}" onclick="setRestDay()">Rest</button>`;
     h += '</div>';
 
     if (!gymState.workout) {
+      const kept = sessionLogged(gymState.date);
       h += `<div class="gym-rest">
               <div class="gym-rest-title">${sched ? 'No session' : 'Rest day'}</div>
-              <p>Pick a workout above to log one for this day.</p>
+              <p>${kept
+                ? 'This day still has a logged session saved. Pick that workout again to see it.'
+                : 'Pick a workout above to log one for this day.'}</p>
             </div>`;
       root.innerHTML = h;
       return;
@@ -4250,9 +4455,10 @@ el.innerHTML = content;
       if (open) {
         h += '<div class="gym-sets">';
 
-        if (ex.variants && ex.variants.length) {
+        const variantList = variantsFor(ex);
+        if (variantList) {
           h += '<div class="gym-variants">';
-          ex.variants.forEach(v => {
+          variantList.forEach(v => {
             h += `<button class="gym-variant${v === variant ? ' active' : ''}"
                           onclick="pickVariant('${base}','${v.replace(/'/g,"\\'")}')">${escHtml(v)}</button>`;
           });
@@ -4828,8 +5034,8 @@ el.innerHTML = content;
                   <input type="text" value="${escHtml(ex.reps)}" onchange="editEx('${w}',${i},'reps',this.value)"/>
                   <button class="gym-set-del" onclick="removeEx('${w}',${i})">✕</button>
                 </div>
-                <input type="text" class="gym-var-input" placeholder="Variants, comma separated (optional)"
-                       value="${escHtml((ex.variants || []).join(', '))}"
+                <input type="text" class="gym-var-input" placeholder="Variants, comma separated (blank for none)"
+                       value="${escHtml((variantsFor(ex) || []).join(', '))}"
                        onchange="editEx('${w}',${i},'variants',this.value)"/>
                 <div class="gym-mode-toggle">
                   <button class="gym-mode${exMode(ex) === 'reps' ? ' active' : ''}" onclick="editEx('${w}',${i},'mode','reps')">Reps</button>
@@ -4848,8 +5054,8 @@ el.innerHTML = content;
     const r = loadRoutine();
     if (field === 'sets') r[w][i].sets = parseInt(value) || 1;
     else if (field === 'variants') {
-      const list = value.split(',').map(s => s.trim()).filter(Boolean);
-      if (list.length) r[w][i].variants = list; else delete r[w][i].variants;
+      // always store the array — an empty one means "deliberately none"
+      r[w][i].variants = value.split(',').map(s => s.trim()).filter(Boolean);
     }
     else if (field === 'mode') { r[w][i].mode = value; saveRoutine(r); renderGym(); return; }
     else r[w][i][field] = value;
