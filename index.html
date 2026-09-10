@@ -3937,6 +3937,16 @@ el.innerHTML = content;
     }
   }
 
+  // Display only. Storage keys are built from the raw names, so expanding
+  // abbreviations here can never renumber or orphan existing history.
+  function pretty(s){
+    return String(s || '')
+      .replace(/\bdb\b/gi, 'Dumbbell')
+      .replace(/\bbb\b/gi, 'Barbell')
+      .replace(/\bez\b/gi, 'EZ')
+      .replace(/\bor\b/gi, 'or');
+  }
+
   function slug(s){ return String(s).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,''); }
 
   function loadRoutine(){
@@ -4028,8 +4038,6 @@ el.innerHTML = content;
     'shrug':              ['Barbell','DB','Machine','Smith'],
     // shoulders
     'overhead-press':     ['Barbell','DB','Machine','Smith'],
-    'seated-db-shoulder-press': ['DB','Machine'],
-    'db-lateral-raise':   ['DB','Cable','Machine'],
     'front-raise':        ['DB','Cable','Plate'],
     'rear-delt-fly':      ['DB','Cable','Machine'],
     'face-pull':          ['Rope','Band'],
@@ -4040,12 +4048,8 @@ el.innerHTML = content;
     'skull-crusher':      ['EZ Bar','Barbell','DB'],
     'tricep-kickback':    ['DB','Cable'],
     'preacher-curl':      ['EZ Bar','Barbell','DB','Machine','Cable'],
-    'db-curl':            ['DB','Cable'],
-    'barbell-curl':       ['Barbell','EZ Bar'],
-    'ez-bar-curl':        ['EZ Bar','Barbell'],
     'hammer-curl':        ['DB','Cable','Rope'],
     'cable-curl':         ['Bar','Rope','Single-Arm'],
-    'incline-db-curl':    ['DB','Cable'],
     'concentration-curl': ['DB','Cable'],
     'spider-curl':        ['EZ Bar','DB'],
     'reverse-curl':       ['EZ Bar','Barbell','Cable'],
@@ -4085,6 +4089,7 @@ el.innerHTML = content;
   }
 
   function exKey(ex, variant){
+    if (ex && ex.key) return ex.key;    // recovered entry — its key is fixed
     const base = slug(ex.name);
     const v = variant !== undefined ? variant : chosenVariant(ex);
     return v ? base + '--' + slug(v) : base;
@@ -4092,6 +4097,7 @@ el.innerHTML = content;
 
   // last variant used for this exercise, else the first option
   function chosenVariant(ex){
+    if (ex.extra) return null;      // recovered from a logged key; leave it alone
     const list = variantsFor(ex);
     if (!list) return null;
     const sess = currentSession();
@@ -4135,7 +4141,12 @@ el.innerHTML = content;
 
   function displayName(ex, variant){
     const v = variant !== undefined ? variant : chosenVariant(ex);
-    return v ? v + ' ' + ex.name : ex.name;
+    const name = pretty(ex.name);
+    if (!v) return name;
+    const pv = pretty(v);
+    // "Dumbbell Dumbbell Curl" helps nobody
+    if (name.toLowerCase().includes(pv.toLowerCase())) return name;
+    return pv + ' ' + name;
   }
 
   // ── MUSCLE GROUPS ──
@@ -4227,32 +4238,57 @@ el.innerHTML = content;
   function sessionPlan(){
     const sess = currentSession();
     const routine = loadRoutine();
-    // if the chosen workout no longer matches what the session stored, show the
-    // live routine — the snapshot is rewritten as soon as anything is logged
-    const usePlan = sess && sess.plan && sess.workout === gymState.workout;
-    const base = usePlan ? sess.plan : (routine[gymState.workout] || []);
+
+    const loggedKeys = (sess && sess.exercises)
+      ? Object.keys(sess.exercises).filter(k => sess.exercises[k].some(x => x.r))
+      : [];
+
+    // What this session should show, in order of preference:
+    //  1. its own saved plan, if it matches the workout on screen
+    //  2. nothing — because it predates plans but has logged sets, and those
+    //     sets ARE the record of what was done. Never overwrite history with
+    //     the current routine.
+    //  3. the live routine, for a session that hasn't been started
+    let base;
+    if (sess && sess.plan && sess.workout === gymState.workout) base = sess.plan;
+    else if (loggedKeys.length) base = [];
+    else base = routine[gymState.workout] || [];
+
     const list = base.slice();
-    if (usePlan && sess.exercises) {
-      const have = new Set();
-      list.forEach(e => {
-        const vs = variantsFor(e);
-        if (vs) vs.forEach(v => have.add(exKey(e, v)));
-        have.add(exKey(e, null));
-        have.add(slug(e.name));
+
+    // Anything logged that the list doesn't already cover gets appended, so a
+    // renamed or removed exercise can never hide data that exists.
+    const have = new Set();
+    list.forEach(e => {
+      const vs = variantsFor(e);
+      if (vs) vs.forEach(v => have.add(exKey(e, v)));
+      have.add(exKey(e, null));
+      have.add(slug(e.name));
+    });
+    loggedKeys.forEach(k => {
+      if (have.has(k)) return;
+      list.push({
+        name: unslug(k),
+        key: k,                // keep the original key so its sets still resolve
+        sets: sess.exercises[k].length,
+        reps: '—',
+        variants: [],
+        extra: true
       });
-      Object.keys(sess.exercises).forEach(k => {
-        if (!have.has(k) && sess.exercises[k].some(x => x.r)) {
-          list.push({ name: unslug(k), sets: sess.exercises[k].length, reps:'—', extra:true });
-        }
-      });
-    }
+      have.add(k);
+    });
+
     return list;
   }
 
   function unslug(k){
     const known = allExerciseNames().find(n => slug(n) === k);
     if (known) return known;
-    return k.replace(/--/g,' ').replace(/-/g,' ').replace(/\b\w/g, c => c.toUpperCase());
+    // "bench-press--barbell" reads as "Barbell Bench Press"
+    const [base, variant] = String(k).split('--');
+    const title = s => s.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    const baseName = allExerciseNames().find(n => slug(n) === base) || title(base);
+    return variant ? title(variant) + ' ' + baseName : baseName;
   }
 
   function allExerciseNames(){
@@ -4460,7 +4496,7 @@ el.innerHTML = content;
           h += '<div class="gym-variants">';
           variantList.forEach(v => {
             h += `<button class="gym-variant${v === variant ? ' active' : ''}"
-                          onclick="pickVariant('${base}','${v.replace(/'/g,"\\'")}')">${escHtml(v)}</button>`;
+                          onclick="pickVariant('${base}','${v.replace(/'/g,"\\'")}')">${escHtml(pretty(v))}</button>`;
           });
           h += '</div>';
         }
@@ -4480,13 +4516,13 @@ el.innerHTML = content;
         h += `<div class="gym-set-actions">
                 <button class="sync-btn" onclick="addSet('${key}')">+ Set</button>
                 <button class="sync-btn" onclick="openExercise('${key}','${escHtml(label).replace(/'/g,"\\'")}')">History</button>
-                <button class="sync-btn gym-drop" onclick="removeSessionExercise('${base}')">Remove</button>
+                <button class="sync-btn gym-drop" onclick="removeSessionExercise('${ex.key || base}')">Remove</button>
               </div>`;
 
         const subs = exerciseSubs(ex.name, 3);
         if (subs.length) {
           h += '<div class="gym-swap"><span class="gym-swap-label">Swap for</span>' +
-               subs.map(n => `<button class="gym-swap-chip" onclick="swapExercise('${base}','${escHtml(n).replace(/'/g,"\\'")}')">${escHtml(n)}</button>`).join('') +
+               subs.map(n => `<button class="gym-swap-chip" onclick="swapExercise('${base}','${escHtml(n).replace(/'/g,"\\'")}')">${escHtml(pretty(n))}</button>`).join('') +
                '</div>';
         }
         h += '</div>';
@@ -4529,7 +4565,7 @@ el.innerHTML = content;
     if (!box) return;
     if (!gymState.suggest.length) { box.innerHTML = ''; return; }
     box.innerHTML = gymState.suggest.map(n =>
-      `<div class="gym-suggest-item" onclick="chooseSuggestion('${escHtml(n).replace(/'/g,"\\'")}')">${escHtml(n)}</div>`
+      `<div class="gym-suggest-item" onclick="chooseSuggestion('${escHtml(n).replace(/'/g,"\\'")}')">${escHtml(pretty(n))}</div>`
     ).join('');
   }
 
@@ -4948,7 +4984,7 @@ el.innerHTML = content;
     const dates = hist.map(p => p.date);
 
     let h = `<button class="gym-back" onclick="gymGo('session')">&lsaquo; Back</button>
-             <div class="screen-title" style="padding-top:6px">${escHtml(name)}</div>`;
+             <div class="screen-title" style="padding-top:6px">${escHtml(pretty(name))}</div>`;
 
     if (!hist.length) {
       h += '<div class="gym-nochart">Nothing logged yet</div>';
