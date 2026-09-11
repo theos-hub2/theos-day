@@ -1124,6 +1124,31 @@
   color: var(--green);
 }
 
+.hobby-soon {
+  margin-top: 22px;
+  padding: 26px 20px;
+  background: var(--off-white);
+  border: 1.5px solid var(--border);
+  border-radius: 4px;
+  text-align: center;
+}
+.hobby-soon-title { font-size: 1.4rem; font-weight: 700; color: var(--green); margin-bottom: 10px; }
+.hobby-soon p { font-size: 0.9rem; color: var(--ink-mid); line-height: 1.55; margin-bottom: 16px; }
+.hobby-soon-tag {
+  display: inline-block;
+  padding: 5px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: 20px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.cal-day.in-week { background: rgba(26,77,46,0.06); border-color: var(--green-pale); }
+#hobbyChips { flex-wrap: wrap; margin-top: 14px; }
+#hobbyChips .gym-chip { flex: 1 1 auto; padding-left: 12px; padding-right: 12px; }
+
 /* ── GYM ── */
 .gym-week-nav {
   display: flex;
@@ -1268,6 +1293,35 @@
   cursor: pointer;
 }
 .gym-swap-chip:active { background: var(--green); border-color: var(--green); color: var(--white); }
+
+.gym-set-var {
+  flex-shrink: 0;
+  width: 76px;
+  padding: 9px 4px;
+  border: 1.5px solid var(--border);
+  background: var(--off-white);
+  color: var(--ink-mid);
+  font-family: 'EB Garamond', serif;
+  font-size: 15px;
+  font-weight: 600;
+  text-align: center;
+  outline: none;
+  border-radius: 3px;
+}
+.gym-set-row input { min-width: 0; }
+.gym-mix-toggle {
+  margin-top: 10px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-family: 'EB Garamond', serif;
+  font-size: 0.74rem;
+  font-style: italic;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
 
 .gym-sets { padding: 4px 10px 16px; }
 .gym-set-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
@@ -2332,18 +2386,16 @@
     </div>
 
     <!-- CALENDAR -->
-    <!-- THIS WEEK -->
-    <div class="panel" id="panel-week">
-      <div class="week-header">
-        <div class="screen-title" id="weekTitle">This Week</div>
-        <div class="week-range gym-week-nav" id="weekRange"></div>
+    <!-- MONTH -->
+    <div class="panel" id="panel-month">
+      <div class="cal-header">
+        <button class="cal-nav" onclick="changeMonth(-1)" aria-label="Previous month">&lsaquo;</button>
+        <span class="cal-title" id="calMonthLabel"></span>
+        <button class="cal-nav" onclick="changeMonth(1)" aria-label="Next month">&rsaquo;</button>
       </div>
+      <div class="cal-grid" id="calGrid"></div>
 
-      <div class="top-progress" id="topProgress-week"></div>
-
-      <div class="week-strip" id="weekStrip"></div>
-
-      <div class="dayview-slot" id="weekDaySlot"></div>
+      <div class="dayview-slot" id="monthDaySlot"></div>
 
       <button class="aims-toggle" onclick="toggleAims('week')">
         <span class="aims-label" id="aimsLabel-week">This Week's Aims</span>
@@ -2351,6 +2403,7 @@
         <span class="aims-chev" id="aimsChev-week">&rsaquo;</span>
       </button>
       <div class="aims-body" id="aimsBody-week">
+        <div class="top-progress" id="topProgress-week"></div>
         <div id="goalList-week" class="res-list"></div>
         <div class="goal-add" id="goalAdd-week">
           <input type="text" id="goalInput-week" placeholder="Aim for this week…"/>
@@ -2364,20 +2417,6 @@
           </div>
         </div>
       </div>
-    </div>
-
-    <!-- MONTH -->
-    <div class="panel" id="panel-month">
-      <div class="cal-header">
-        <button class="cal-nav" onclick="changeMonth(-1)" aria-label="Previous month">&lsaquo;</button>
-        <span class="cal-title" id="calMonthLabel"></span>
-        <button class="cal-nav" onclick="changeMonth(1)" aria-label="Next month">&rsaquo;</button>
-      </div>
-      <div class="top-progress" id="topProgress-month"></div>
-
-      <div class="cal-grid" id="calGrid"></div>
-
-      <div class="dayview-slot" id="monthDaySlot"></div>
 
       <button class="aims-toggle" onclick="toggleAims('month')">
         <span class="aims-label" id="monthAimsLabel">This Month's Aims</span>
@@ -2385,6 +2424,7 @@
         <span class="aims-chev" id="aimsChev-month">&rsaquo;</span>
       </button>
       <div class="aims-body" id="aimsBody-month">
+        <div class="top-progress" id="topProgress-month"></div>
         <div id="goalList-month" class="res-list"></div>
         <div class="goal-add" id="goalAdd-month">
           <input type="text" id="goalInput-month" placeholder="Aim for this month…"/>
@@ -2398,6 +2438,13 @@
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- HOBBIES -->
+    <div class="panel" id="panel-hobbies">
+      <div class="screen-title">Hobbies</div>
+      <div class="gym-chips" id="hobbyChips"></div>
+      <div id="hobbyBody"></div>
     </div>
 
     <!-- SHARED DAY VIEW — moved into whichever slot is active -->
@@ -2448,8 +2495,8 @@
     <button class="tabbtn active" onclick="switchTab('today',this)" aria-label="Today">
       <svg viewBox="0 0 24 24"><path d="M4 6.5h16M4 12h16M4 17.5h16"/><circle cx="9" cy="6.5" r="2.4"/><circle cx="15" cy="17.5" r="2.4"/></svg>
     </button>
-    <button class="tabbtn" onclick="switchTab('week',this)" aria-label="This week">
-      <svg viewBox="0 0 24 24"><path d="M4 15.5v3M8 11v7.5M12 13.5v5M16 8v10.5M20 12v6.5"/><path d="M3 4.5h18"/></svg>
+    <button class="tabbtn" onclick="switchTab('hobbies',this)" aria-label="Hobbies">
+      <svg viewBox="0 0 24 24"><path d="M12 3.6c-4.7 0-8.5 3.8-8.5 8.4 0 4.7 3.8 8.4 8.5 8.4 1.2 0 2-.7 2-1.7 0-1.4-1.3-1.6-1.3-2.7 0-.8.7-1.4 1.6-1.4h1.5c2.6 0 4.7-2.1 4.7-4.7 0-3.6-3.8-6.3-8.5-6.3z"/><circle cx="8" cy="10" r="1.1"/><circle cx="12" cy="7.8" r="1.1"/><circle cx="16.2" cy="10.6" r="1.1"/></svg>
     </button>
     <button class="tabbtn" onclick="switchTab('month',this)" aria-label="Month">
       <svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M3.5 9.8h17M8 3v4M16 3v4"/></svg>
@@ -3220,7 +3267,7 @@
     document.getElementById('panel-'+name).classList.add('active');
     el.classList.add('active');
     window.scrollTo(0,0);
-    if(name==='week')renderWeek();
+    if(name==='hobbies')renderHobbies();
     if(name==='month')renderCalendar();
     if(name==='resolutions')renderGoals('year');
     if(name==='gym')renderGym();
@@ -3272,6 +3319,7 @@ if (dayData && dayData.tasks && dayData.tasks.length > 0) {
 }
 
 el.innerHTML = content;
+      el.dataset.key = key;
       el.onclick=()=>{openDay(key,'monthDaySlot');renderCalendar();};
       grid.appendChild(el);
     }
@@ -3280,9 +3328,34 @@ el.innerHTML = content;
       renderDayView(selKey);
     }
 
-    // monthly aims follow the displayed month
     const now=new Date();
     const isThisMonth=(calYear===now.getFullYear()&&calMonth===now.getMonth());
+
+    // Weekly aims follow whichever day is selected — tap a date and the aims
+    // below flip to that week. With nothing selected, use the current week when
+    // you're on this month, otherwise the month's first week.
+    let anchor;
+    if (selKey) anchor = new Date(selKey + 'T00:00:00');
+    else if (isThisMonth) anchor = new Date();
+    else anchor = new Date(calYear, calMonth, 1);
+    weekViewStart = ymd(weekStartOf(anchor));
+
+    const wkStart = new Date(weekViewStart + 'T00:00:00');
+    [...grid.querySelectorAll('.cal-day')].forEach(cell => {
+      const k = cell.dataset.key;
+      if (k && ymd(weekStartOf(new Date(k + 'T00:00:00'))) === weekViewStart) {
+        cell.classList.add('in-week');
+      }
+    });
+
+    const fmt = { month:'short', day:'numeric' };
+    const wkEnd = new Date(wkStart); wkEnd.setDate(wkEnd.getDate()+6);
+    document.getElementById('aimsLabel-week').textContent =
+      weekViewStart === ymd(weekStartOf(new Date()))
+        ? "This Week's Aims"
+        : `${wkStart.toLocaleDateString('en-US',fmt)} – ${wkEnd.toLocaleDateString('en-US',fmt)}`;
+    renderGoals('week');
+
     document.getElementById('monthAimsLabel').textContent=
       isThisMonth?"This Month's Aims":`${months[calMonth]} Aims`;
     renderGoals('month');
@@ -3661,78 +3734,6 @@ el.innerHTML = content;
     if (chev) chev.classList.toggle('open', open);
   }
 
-  function weekShift(delta) {
-    const d = new Date((weekViewStart || ymd(weekStartOf(new Date()))) + 'T00:00:00');
-    d.setDate(d.getDate() + delta * 7);
-    weekViewStart = ymd(d);
-    renderWeek();
-  }
-
-  function weekToThis() {
-    weekViewStart = ymd(weekStartOf(new Date()));
-    renderWeek();
-  }
-
-  function renderWeek() {
-    if (!weekViewStart) weekViewStart = ymd(weekStartOf(new Date()));
-    const thisWeek = ymd(weekStartOf(new Date()));
-    const start = new Date(weekViewStart + 'T00:00:00');
-    const end = new Date(start);
-    end.setDate(end.getDate() + 6);
-
-    const fmt = { month: 'short', day: 'numeric' };
-    const isCurrent = weekViewStart === thisWeek;
-
-    document.getElementById('weekTitle').textContent = isCurrent ? 'This Week' : 'Week of ' + start.toLocaleDateString('en-US', fmt);
-    document.getElementById('weekRange').innerHTML =
-      `<button class="cal-nav" onclick="weekShift(-1)" aria-label="Previous week">&lsaquo;</button>
-       <span class="gym-week-label">${start.toLocaleDateString('en-US', fmt)} — ${end.toLocaleDateString('en-US', fmt)}</span>
-       ${isCurrent ? '' : '<button class="gym-today-btn" onclick="weekToThis()">This week</button>'}
-       <button class="cal-nav" onclick="weekShift(1)" aria-label="Next week">&rsaquo;</button>`;
-    document.getElementById('aimsLabel-week').textContent = isCurrent ? "This Week's Aims" : "Aims";
-
-    const names = ['Su','Mo','Tu','We','Th','Fr','Sa'];
-    const data = loadData();
-    const strip = document.getElementById('weekStrip');
-    strip.innerHTML = '';
-
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(start);
-      d.setDate(d.getDate() + i);
-      const key = ymd(d);
-
-      const cell = document.createElement('div');
-      cell.className = 'week-cell';
-      if (key === todayKey) cell.classList.add('today');
-      if (key === selKey) cell.classList.add('selected');
-      if (key > todayKey) cell.classList.add('future');
-
-      let inner = `<div class="wc-name">${names[i]}</div>
-                   <div class="wc-num">${d.getDate()}</div>`;
-
-      const day = data[key];
-      if (day && day.tasks && day.tasks.length) {
-        const done = day.tasks.filter(t => t.done).length;
-        const p = Math.round((done / day.tasks.length) * 100);
-        inner += `<div class="wc-pct" style="color:${key === todayKey ? '#fff' : getProgressColor(p)}">${p}%</div>`;
-      }
-
-      cell.innerHTML = inner;
-      cell.onclick = () => { openDay(key, 'weekDaySlot'); renderWeek(); };
-      strip.appendChild(cell);
-    }
-
-    const endKey = ymd(end);
-    const startKey = ymd(start);
-    if (selKey && selKey >= startKey && selKey <= endKey) {
-      document.getElementById('weekDaySlot').appendChild(document.getElementById('dayView'));
-      renderDayView(selKey);
-    }
-
-    renderGoals('week');
-  }
-
-
   function launchConfetti(){
     const c=document.getElementById('confetti');
     const colors=['#1a4d2e','#2d6a4f','#52b788','#95d5b2','#40916c','#1b4332','#081c15'];
@@ -3803,6 +3804,44 @@ el.innerHTML = content;
   applyAimsState('sync');
 
   renderToday();
+
+  // ── HOBBIES ──
+  // Shell for now: the tab, the switcher, and a placeholder per hobby. Each one
+  // gets built out on its own rather than all at once.
+
+  const HOBBIES = [
+    { key:'chess',   name:'Chess',   note:'Rapid games imported from Chess.com, an archive you can tag and annotate, a study log by phase, and graphs of rating against games played.' },
+    { key:'drawing', name:'Drawing', note:'A log per sketch — subject, location, medium, time spent and how it felt — with sketches per week as the progress line.' },
+    { key:'cooking', name:'Cooking', note:'Dishes you return to, each with its attempts: rating out of 10, what you would change next time, time taken and the recipe source. Plus a to-try queue.' },
+    { key:'reading', name:'Reading', note:'Books with pages as you go, a rating out of 5 and what you took from it on finishing, a separate quote collection, and a link out to Goodreads.' },
+    { key:'writing', name:'Writing', note:'Waiting on your Obsidian vault. Fragments captured on the move, pieces tracked and linked out rather than drafted here.' }
+  ];
+
+  function currentHobby(){ return localStorage.getItem('theosHobby') || 'cooking'; }
+
+  function pickHobby(key){
+    localStorage.setItem('theosHobby', key);
+    renderHobbies();
+  }
+
+  function renderHobbies(){
+    const cur = currentHobby();
+    const chips = document.getElementById('hobbyChips');
+    if (chips) {
+      chips.innerHTML = HOBBIES.map(hb =>
+        `<button class="gym-chip${hb.key === cur ? ' active' : ''}" onclick="pickHobby('${hb.key}')">${hb.name}</button>`
+      ).join('');
+    }
+    const body = document.getElementById('hobbyBody');
+    if (!body) return;
+    const hb = HOBBIES.find(x => x.key === cur) || HOBBIES[0];
+    body.innerHTML = `
+      <div class="hobby-soon">
+        <div class="hobby-soon-title">${escHtml(hb.name)}</div>
+        <p>${escHtml(hb.note)}</p>
+        <div class="hobby-soon-tag">Coming soon</div>
+      </div>`;
+  }
 
   // ── GYM ──
 
@@ -4233,6 +4272,92 @@ el.innerHTML = content;
     renderGym();
   }
 
+  // ── MIXED VARIANTS ──
+  // Normally an exercise uses one variant for the whole session. Turn on mixing
+  // and each set carries its own, so 3 wide + 2 close pulldowns sit in one list
+  // while still feeding two separate histories.
+
+  function mixEnabled(ex){
+    const vs = variantsFor(ex);
+    if (!vs) return false;
+    const sess = currentSession();
+    if (sess && sess.mix && sess.mix[slug(ex.name)]) return true;
+    // more than one variant already has sets? then it's mixed whether you said so or not
+    const used = vs.filter(v => (sess && sess.exercises[exKey(ex, v)] || []).some(x => x.r));
+    return used.length > 1;
+  }
+
+  function toggleMix(base){
+    const ex = sessionPlan().find(e => slug(e.name) === base);
+    if (!ex) return;
+    const on = mixEnabled(ex);
+    // stamp the current order onto every set, so retagging one can't reshuffle
+    const merged = mergedSets(ex);
+    writeSession(s => {
+      if (!s.mix) s.mix = {};
+      if (on) delete s.mix[base]; else s.mix[base] = true;
+      merged.forEach((m, i) => {
+        const arr = s.exercises[m.key];
+        if (arr && arr[m.idx]) arr[m.idx].o = i;
+      });
+    });
+    renderGym();
+  }
+
+  // every set across every variant, in the order they were entered
+  function mergedSets(ex){
+    const sess = currentSession();
+    const vs = variantsFor(ex) || [];
+    const out = [];
+    vs.forEach((v, vi) => {
+      const key = exKey(ex, v);
+      (sess && sess.exercises[key] || []).forEach((s, i) => {
+        out.push({ ...s, variant: v, key, idx: i, ord: s.o != null ? s.o : (vi * 100 + i) });
+      });
+    });
+    return out.sort((a, b) => a.ord - b.ord);
+  }
+
+  function nextOrder(ex){
+    const all = mergedSets(ex);
+    return all.length ? Math.max(...all.map(s => s.ord)) + 1 : 0;
+  }
+
+  function setSetVariant(base, fromKey, idx, toVariant){
+    const ex = sessionPlan().find(e => slug(e.name) === base);
+    if (!ex) return;
+    const toKey = exKey(ex, toVariant);
+    if (toKey === fromKey) return;
+    // remember where it sat so it stays put after the move
+    const here = mergedSets(ex).find(m => m.key === fromKey && m.idx === idx);
+    const ord = here ? here.ord : 0;
+    writeSession(s => {
+      const arr = s.exercises[fromKey];
+      if (!arr || !arr[idx]) return;
+      const [item] = arr.splice(idx, 1);
+      item.o = ord;
+      if (!s.exercises[toKey]) s.exercises[toKey] = [];
+      s.exercises[toKey].push(item);
+      if (!arr.length) delete s.exercises[fromKey];
+    });
+    renderGym();
+  }
+
+  function addMixedSet(base){
+    const ex = sessionPlan().find(e => slug(e.name) === base);
+    if (!ex) return;
+    const v = chosenVariant(ex);
+    const key = exKey(ex, v);
+    const ord = nextOrder(ex);
+    const all = mergedSets(ex);
+    const last = all.length ? all[all.length - 1] : null;
+    writeSession(s => {
+      if (!s.exercises[key]) s.exercises[key] = [];
+      s.exercises[key].push({ w: last ? last.w : '', r: '', o: ord });
+    });
+    renderGym();
+  }
+
   // ── SESSION CONTENTS ──
 
   function sessionPlan(){
@@ -4465,13 +4590,14 @@ el.innerHTML = content;
 
     list.forEach(ex => {
       const base = slug(ex.name);
+      const mixed = mixEnabled(ex);
       const variant = chosenVariant(ex);
       const key = exKey(ex, variant);
-      const sets = (sess && sess.exercises[key]) || [];
+      const sets = mixed ? mergedSets(ex) : ((sess && sess.exercises[key]) || []);
       const open = !!gymState.expanded[key];
       const logged = sets.some(s => s.r);
       const prev = lastEntry(key);
-      const label = displayName(ex, variant);
+      const label = mixed ? pretty(ex.name) : displayName(ex, variant);
       const mode = exMode(ex);
       const muscles = exerciseMuscles(ex.name);
 
@@ -4493,7 +4619,7 @@ el.innerHTML = content;
 
         const variantList = variantsFor(ex);
         if (variantList) {
-          h += '<div class="gym-variants">';
+          h += mixed ? '<div class="gym-variants"><span class="gym-swap-label">New sets</span>' : '<div class="gym-variants">';
           variantList.forEach(v => {
             h += `<button class="gym-variant${v === variant ? ' active' : ''}"
                           onclick="pickVariant('${base}','${v.replace(/'/g,"\\'")}')">${escHtml(pretty(v))}</button>`;
@@ -4502,22 +4628,32 @@ el.innerHTML = content;
         }
 
         sets.forEach((s, i) => {
+          const sKey = mixed ? s.key : key;
+          const sIdx = mixed ? s.idx : i;
           h += `<div class="gym-set-row">
                   <span class="gym-set-n">${i+1}</span>
                   <input type="number" inputmode="decimal" placeholder="kg" value="${s.w ?? ''}"
-                         onchange="setVal('${key}',${i},'w',this.value)"/>
+                         onchange="setVal('${sKey}',${sIdx},'w',this.value)"/>
                   <span class="gym-x">${mode === 'time' ? 'for' : '×'}</span>
                   <input type="number" inputmode="numeric" placeholder="${mode === 'time' ? 'sec' : 'reps'}"
-                         value="${s.r ?? ''}" onchange="setVal('${key}',${i},'r',this.value)"/>
+                         value="${s.r ?? ''}" onchange="setVal('${sKey}',${sIdx},'r',this.value)"/>
                   ${mode === 'time' ? `<span class="gym-dur">${s.r ? fmtDur(s.r) : ''}</span>` : ''}
-                  <button class="gym-set-del" onclick="removeSet('${key}',${i})">✕</button>
+                  ${mixed ? `<select class="gym-set-var" onchange="setSetVariant('${base}','${s.key}',${s.idx},this.value)">
+                      ${variantsFor(ex).map(v => `<option value="${v}"${v === s.variant ? ' selected' : ''}>${escHtml(pretty(v))}</option>`).join('')}
+                    </select>` : ''}
+                  <button class="gym-set-del" onclick="removeSet('${sKey}',${sIdx})">✕</button>
                 </div>`;
         });
         h += `<div class="gym-set-actions">
-                <button class="sync-btn" onclick="addSet('${key}')">+ Set</button>
+                <button class="sync-btn" onclick="${mixed ? `addMixedSet('${base}')` : `addSet('${key}')`}">+ Set</button>
                 <button class="sync-btn" onclick="openExercise('${key}','${escHtml(label).replace(/'/g,"\\'")}')">History</button>
                 <button class="sync-btn gym-drop" onclick="removeSessionExercise('${ex.key || base}')">Remove</button>
               </div>`;
+
+        if (variantsFor(ex)) {
+          h += `<button class="gym-mix-toggle" onclick="toggleMix('${base}')">${
+            mixed ? 'Use one variant for all sets' : 'Mix variants across sets'}</button>`;
+        }
 
         const subs = exerciseSubs(ex.name, 3);
         if (subs.length) {
