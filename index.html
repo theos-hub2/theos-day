@@ -1124,6 +1124,139 @@
   color: var(--green);
 }
 
+.hobby-head { display: flex; align-items: baseline; gap: 8px; padding-top: 18px; flex-wrap: wrap; }
+.hobby-head-fixed { font-size: 1.9rem; font-weight: 700; color: var(--green); letter-spacing: -0.01em; }
+.hobby-pick {
+  background: transparent; border: none; padding: 0;
+  font-family: 'EB Garamond', serif; font-size: 1.9rem; font-weight: 700;
+  color: var(--green-mid); letter-spacing: -0.01em; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 4px;
+}
+.hobby-caret { font-size: 1.3rem; transition: transform 0.2s ease; display: inline-block; }
+.hobby-caret.open { transform: rotate(90deg); }
+.hobby-menu {
+  margin-top: 8px; border: 1.5px solid var(--border);
+  border-radius: 4px; overflow: hidden;
+}
+.hobby-menu-item {
+  display: block; width: 100%; text-align: left;
+  padding: 13px 15px; background: var(--off-white); border: none;
+  border-bottom: 1px solid var(--border);
+  font-family: 'EB Garamond', serif; font-size: 1rem; font-weight: 600;
+  color: var(--ink); cursor: pointer;
+}
+.hobby-menu-item:last-child { border-bottom: none; }
+.hobby-menu-item:active { background: var(--green); color: var(--white); }
+.date-pair { display: flex; gap: 8px; }
+.date-pair label {
+  flex: 1; display: flex; flex-direction: column; gap: 4px;
+  font-size: 0.68rem; font-weight: 600; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--muted);
+}
+.date-pair input {
+  width: 100%; padding: 9px 10px;
+  border: 1.5px solid var(--border); background: var(--white); color: var(--ink);
+  font-family: 'EB Garamond', serif; font-size: 15px; outline: none; border-radius: 3px;
+}
+.read-day { cursor: default; min-height: 44px; }
+.swatch-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.gr-file {
+  width: 100%; padding: 11px; border: 1.5px dashed var(--border);
+  background: var(--white); border-radius: 3px;
+  font-family: 'EB Garamond', serif; font-size: 0.85rem; color: var(--ink-mid);
+}
+.swatch {
+  width: 34px; height: 34px; border-radius: 50%;
+  border: 1.5px solid var(--border); cursor: pointer; padding: 0;
+}
+.swatch.active { border-color: var(--green); border-width: 3px; }
+.read-day .cal-day-number { font-weight: 700; }
+
+/* ── READING ── */
+.read-stats { display: flex; gap: 8px; margin-top: 16px; }
+.read-stat {
+  flex: 1;
+  padding: 12px 6px;
+  background: var(--off-white);
+  border: 1.5px solid var(--border);
+  border-radius: 4px;
+  text-align: center;
+}
+.rs-n { display: block; font-size: 1.5rem; font-weight: 700; color: var(--green); line-height: 1; }
+.rs-l { display: block; font-size: 0.64rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-top: 5px; }
+
+.book-card {
+  padding: 14px 15px;
+  background: var(--off-white);
+  border: 1.5px solid var(--border);
+  border-left: 3px solid var(--green);
+  border-radius: 3px;
+  margin-bottom: 10px;
+}
+.book-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; cursor: pointer; }
+.book-title { font-size: 1rem; font-weight: 600; color: var(--ink); }
+.book-author { font-size: 0.8rem; color: var(--muted); margin-top: 2px; }
+.book-meta { font-size: 0.78rem; color: var(--ink-mid); margin-top: 7px; }
+.book-update { display: flex; gap: 8px; margin-top: 11px; }
+.book-update input {
+  flex: 1; min-width: 0; padding: 10px 12px;
+  border: 1.5px solid var(--green); background: var(--white); color: var(--ink);
+  font-family: 'EB Garamond', serif; font-weight: 600; outline: none; border-radius: 3px;
+}
+.book-search { display: flex; gap: 8px; margin-top: 6px; }
+.book-search input {
+  flex: 1; min-width: 0; padding: 11px 13px;
+  border: 1.5px solid var(--green); background: var(--white); color: var(--ink);
+  font-family: 'EB Garamond', serif; outline: none; border-radius: 3px;
+}
+.book-results { margin-top: 10px; border: 1.5px solid var(--border); border-radius: 3px; overflow: hidden; }
+.book-result { padding: 11px 13px; border-bottom: 1px solid var(--border); cursor: pointer; background: var(--off-white); }
+.book-result:last-child { border-bottom: none; }
+.book-result:active { background: var(--green); color: var(--white); }
+.book-result-title { font-size: 0.92rem; font-weight: 600; }
+.book-result-meta { font-size: 0.74rem; color: var(--muted); margin-top: 2px; }
+.book-row {
+  display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  padding: 11px 2px; border-bottom: 1px solid var(--border); cursor: pointer;
+}
+.book-row:last-child { border-bottom: none; }
+.book-row-right { color: var(--green); font-size: 0.85rem; flex-shrink: 0; }
+.book-status { display: flex; gap: 6px; margin-top: 14px; }
+.star-row { display: flex; gap: 4px; }
+.star {
+  background: transparent; border: none; font-size: 1.8rem; line-height: 1;
+  color: var(--border); cursor: pointer; padding: 0 2px;
+}
+.star.on { color: var(--green); }
+.takeaway {
+  width: 100%; padding: 11px 12px; border: 1.5px solid var(--border);
+  background: var(--white); color: var(--ink);
+  font-family: 'EB Garamond', serif; font-size: 16px; line-height: 1.5;
+  outline: none; border-radius: 3px; resize: none;
+}
+.quote-card {
+  padding: 12px 14px; background: var(--off-white);
+  border-left: 3px solid var(--green-pale); border-radius: 2px; margin-bottom: 8px;
+}
+.quote-text { font-size: 0.92rem; line-height: 1.5; color: var(--ink); font-style: italic; }
+.quote-meta {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 0.72rem; color: var(--muted); margin-top: 6px;
+}
+.goodreads-link {
+  display: block; margin-top: 24px; padding: 12px; text-align: center;
+  border: 1.5px solid var(--border); border-radius: 3px;
+  color: var(--green); text-decoration: none;
+  font-family: 'EB Garamond', serif; font-size: 0.78rem;
+  font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+}
+.goal-add textarea {
+  width: 100%; padding: 11px 13px; border: 2px solid var(--green);
+  background: var(--white); color: var(--ink);
+  font-family: 'EB Garamond', serif; font-size: 16px; line-height: 1.45;
+  outline: none; resize: none;
+}
+
 .hobby-soon {
   margin-top: 22px;
   padding: 26px 20px;
@@ -2442,8 +2575,7 @@
 
     <!-- HOBBIES -->
     <div class="panel" id="panel-hobbies">
-      <div class="screen-title">Hobbies</div>
-      <div class="gym-chips" id="hobbyChips"></div>
+      <div id="hobbyHeader"></div>
       <div id="hobbyBody"></div>
     </div>
 
@@ -3805,6 +3937,719 @@ el.innerHTML = content;
 
   renderToday();
 
+  // ── READING ──
+
+  function loadBooks(){
+    try { return JSON.parse(localStorage.getItem('theosBooks') || '[]'); }
+    catch { return []; }
+  }
+  function saveBooks(b){ localStorage.setItem('theosBooks', JSON.stringify(b)); queueSync(); }
+
+  function loadQuotes(){
+    try { return JSON.parse(localStorage.getItem('theosQuotes') || '[]'); }
+    catch { return []; }
+  }
+  function saveQuotes(q){ localStorage.setItem('theosQuotes', JSON.stringify(q)); queueSync(); }
+
+  let readingState = { view:'shelf', bookId:null, results:[], searching:false, msg:'' };
+
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+
+  function currentPage(book){
+    const p = book.progress || [];
+    return p.length ? p[p.length - 1].page : 0;
+  }
+
+  function pctThrough(book){
+    if (!book.pages) return null;
+    return Math.min(100, Math.round((currentPage(book) / book.pages) * 100));
+  }
+
+  // pages per day over the last fortnight of actual reading
+  function readingPace(book){
+    const p = (book.progress || []).slice(-8);
+    if (p.length < 2) return null;
+    const first = p[0], last = p[p.length - 1];
+    const days = Math.max(1, (new Date(last.date) - new Date(first.date)) / 86400000);
+    const pages = last.page - first.page;
+    if (pages <= 0) return null;
+    return pages / days;
+  }
+
+  function finishEstimate(book){
+    const pace = readingPace(book);
+    if (!pace || !book.pages) return null;
+    const left = book.pages - currentPage(book);
+    if (left <= 0) return null;
+    const days = Math.ceil(left / pace);
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    return { days, date: d };
+  }
+
+  // ── OPEN LIBRARY LOOKUP ──
+
+  async function searchBooks(){
+    const q = (document.getElementById('bookSearch') || {}).value || '';
+    if (!q.trim()) return;
+    readingState.searching = true;
+    readingState.msg = '';
+    renderHobbies();
+    try {
+      const url = 'https://openlibrary.org/search.json?limit=6&fields=key,title,author_name,number_of_pages_median,first_publish_year&q='
+                + encodeURIComponent(q.trim());
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      readingState.results = (data.docs || []).map(d => ({
+        title: d.title,
+        author: (d.author_name || [])[0] || '',
+        pages: d.number_of_pages_median || 0,
+        year: d.first_publish_year || ''
+      }));
+      if (!readingState.results.length) readingState.msg = 'Nothing found — add it by hand below.';
+    } catch (e) {
+      readingState.results = [];
+      readingState.msg = "Couldn't reach Open Library — add it by hand below.";
+    }
+    readingState.searching = false;
+    renderHobbies();
+  }
+
+  function addBookFrom(i){
+    const r = readingState.results[i];
+    if (!r) return;
+    addBook(r.title, r.author, r.pages);
+    readingState.results = [];
+    const s = document.getElementById('bookSearch');
+    if (s) s.value = '';
+    renderHobbies();
+  }
+
+  function addBookManual(){
+    const v = id => (document.getElementById(id) || {}).value || '';
+    const t = v('bookTitle');
+    if (!t.trim()) return;
+    addBook(t.trim(), v('bookAuthor').trim(), parseInt(v('bookPages')) || 0,
+            v('bookStarted'), v('bookFinished'));
+    ['bookTitle','bookAuthor','bookPages','bookStarted','bookFinished'].forEach(id => {
+      const el = document.getElementById(id); if (el) el.value = '';
+    });
+    renderHobbies();
+  }
+
+  function addBook(title, author, pages, started, finished){
+    const books = loadBooks();
+    const b = {
+      id: uid(), title, author, pages: pages || 0,
+      status: 'reading', started: started || getTodayKey(),
+      progress: [], rating: 0, takeaways: ''
+    };
+    // a finish date means it's a book you've already read
+    if (finished) {
+      b.status = 'finished';
+      b.finished = finished;
+      if (pages) b.progress = [{ date: finished, page: pages }];
+    }
+    books.push(b);
+    saveBooks(books);
+  }
+
+  function setBookDate(id, field, value){
+    const books = loadBooks();
+    const b = books.find(x => x.id === id);
+    if (!b) return;
+    if (value) b[field] = value; else delete b[field];
+    if (field === 'finished' && value && b.status === 'reading') b.status = 'finished';
+    saveBooks(books);
+    renderHobbies();
+  }
+
+  // ── GOODREADS CSV IMPORT ──
+  // Goodreads killed its API, but "My Books → Import and export" still produces
+  // a full CSV. This reads that file; nothing leaves the phone.
+
+  function parseCSV(text){
+    const rows = [];
+    let row = [], field = '', inQuotes = false;
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      if (inQuotes) {
+        if (c === '"') {
+          if (text[i+1] === '"') { field += '"'; i++; }
+          else inQuotes = false;
+        } else field += c;
+      } else if (c === '"') inQuotes = true;
+      else if (c === ',') { row.push(field); field = ''; }
+      else if (c === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
+      else if (c !== '\r') field += c;
+    }
+    if (field.length || row.length) { row.push(field); rows.push(row); }
+    return rows.filter(r => r.length > 1);
+  }
+
+  function grDate(s){
+    // Goodreads writes 2026/03/04
+    const m = String(s || '').match(/(\d{4})\/(\d{1,2})\/(\d{1,2})/);
+    if (!m) return '';
+    return `${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`;
+  }
+
+  function importGoodreads(input){
+    const file = input.files && input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try { applyGoodreads(String(reader.result)); }
+      catch (e) { readingState.msg = 'Could not read that file — ' + e.message; renderHobbies(); }
+    };
+    reader.onerror = () => { readingState.msg = 'Could not read that file.'; renderHobbies(); };
+    reader.readAsText(file);
+  }
+
+  function applyGoodreads(text){
+    const rows = parseCSV(text);
+    if (!rows.length) throw new Error('empty file');
+    const head = rows[0].map(s => s.trim());
+    const col = name => head.indexOf(name);
+    const iTitle = col('Title'), iAuthor = col('Author'), iPages = col('Number of Pages');
+    const iRead = col('Date Read'), iAdded = col('Date Added'), iShelf = col('Exclusive Shelf');
+    const iRating = col('My Rating'), iReview = col('My Review');
+    if (iTitle < 0) throw new Error('that does not look like a Goodreads export');
+
+    const books = loadBooks();
+    const seen = new Set(books.map(b => (b.title + '|' + (b.author || '')).toLowerCase()));
+    let added = 0, skipped = 0;
+
+    rows.slice(1).forEach(r => {
+      const title = (r[iTitle] || '').trim();
+      if (!title) return;
+      const author = iAuthor >= 0 ? (r[iAuthor] || '').trim() : '';
+      const shelf = iShelf >= 0 ? (r[iShelf] || '').trim() : 'read';
+      if (shelf === 'to-read') { skipped++; return; }          // no to-read list by design
+      const dedupe = (title + '|' + author).toLowerCase();
+      if (seen.has(dedupe)) { skipped++; return; }
+      seen.add(dedupe);
+
+      const pages = iPages >= 0 ? parseInt(r[iPages]) || 0 : 0;
+      const readOn = iRead >= 0 ? grDate(r[iRead]) : '';
+      const addedOn = iAdded >= 0 ? grDate(r[iAdded]) : '';
+      const rating = iRating >= 0 ? parseInt(r[iRating]) || 0 : 0;
+      const review = iReview >= 0 ? (r[iReview] || '').trim() : '';
+
+      const b = {
+        id: uid(), title, author, pages,
+        status: shelf === 'currently-reading' ? 'reading' : 'finished',
+        started: '', progress: [], rating, takeaways: review
+      };
+      if (b.status === 'finished') {
+        b.finished = readOn || addedOn || getTodayKey();
+        // Goodreads has no start date, but "Date Added" is usually when you
+        // shelved it. Trust it as a start only if it lands within six months
+        // before the finish — otherwise it's a book that sat on the shelf and
+        // would smear across the calendar.
+        const gap = addedOn ? (new Date(b.finished) - new Date(addedOn)) / 86400000 : -1;
+        b.started = (addedOn && gap > 0 && gap <= 180) ? addedOn : b.finished;
+        if (pages) b.progress = [{ date: b.finished, page: pages }];
+      } else {
+        b.started = addedOn || getTodayKey();
+      }
+      books.push(b);
+      added++;
+    });
+
+    saveBooks(books);
+    readingState.msg = `Imported ${added} book${added === 1 ? '' : 's'}` +
+                       (skipped ? `, skipped ${skipped} (already here or on your to-read shelf)` : '') +
+                       '. Start dates come from when you shelved each book — edit any that look wrong.';
+    renderHobbies();
+  }
+
+  // ── READING CALENDAR ──
+
+  const BOOK_COLORS = ['#dbeadf','#e8e2cf','#dfe4ee','#f0e2de','#e6e0ea','#dcebe8','#efe8d4','#e4e9da'];
+  function bookColor(id){
+    const books = loadBooks();
+    const b = books.find(x => x.id === id);
+    if (b && b.color) return b.color;
+    const i = books.findIndex(x => x.id === id);
+    return BOOK_COLORS[(i < 0 ? 0 : i) % BOOK_COLORS.length];
+  }
+
+  function setBookColor(id, color){
+    const books = loadBooks();
+    const b = books.find(x => x.id === id);
+    if (!b) return;
+    b.color = color;
+    saveBooks(books);
+    renderHobbies();
+  }
+
+  // books being read on a given day, from their start and finish dates
+  function booksOn(dateKey){
+    const today = getTodayKey();
+    return loadBooks().filter(b => {
+      if (!b.started) return false;
+      const end = b.finished || (b.status === 'reading' ? today : b.started);
+      return dateKey >= b.started && dateKey <= end;
+    });
+  }
+
+  let readCalYear = null, readCalMonth = null;
+  function readCalShift(d){
+    const x = new Date(readCalYear, readCalMonth + d, 1);
+    readCalYear = x.getFullYear();
+    readCalMonth = x.getMonth();
+    renderHobbies();
+  }
+
+  function readingCalendarHTML(){
+    const now = new Date();
+    if (readCalYear == null) { readCalYear = now.getFullYear(); readCalMonth = now.getMonth(); }
+    const MONTHS = ['January','February','March','April','May','June','July',
+                    'August','September','October','November','December'];
+    const first = new Date(readCalYear, readCalMonth, 1);
+    const days = new Date(readCalYear, readCalMonth + 1, 0).getDate();
+    const lead = first.getDay();
+
+    let h = `<div class="cal-header" style="padding-top:0">
+               <button class="cal-nav" onclick="readCalShift(-1)" aria-label="Previous month">&lsaquo;</button>
+               <span class="cal-title">${MONTHS[readCalMonth]} ${readCalYear}</span>
+               <button class="cal-nav" onclick="readCalShift(1)" aria-label="Next month">&rsaquo;</button>
+             </div>
+             <div class="cal-grid">`;
+    ['S','M','T','W','T','F','S'].forEach(n => h += `<div class="cal-day-name">${n}</div>`);
+    for (let i = 0; i < lead; i++) h += '<div></div>';
+
+    const seen = new Map();
+    for (let d = 1; d <= days; d++) {
+      const key = `${readCalYear}-${String(readCalMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      const on = booksOn(key);
+      on.forEach(b => seen.set(b.id, b));
+      let style = '';
+      if (on.length === 1) style = `background:${bookColor(on[0].id)};`;
+      else if (on.length > 1) {
+        const c = on.slice(0,2).map(b => bookColor(b.id));
+        style = `background:linear-gradient(to bottom, ${c[0]} 0 50%, ${c[1]} 50% 100%);`;
+      }
+      h += `<div class="cal-day read-day" style="${style}">
+              <div class="cal-day-number">${d}</div>
+            </div>`;
+    }
+    h += '</div>';
+
+    if (seen.size) {
+      h += '<div class="chart-legend" style="margin-top:10px">' +
+        [...seen.values()].map(b =>
+        `<span class="legend-item"><i style="background:${bookColor(b.id)}"></i>${escHtml(b.title)}</span>`).join('') +
+        '</div>';
+    }
+    return h;
+  }
+
+  // ── PROGRESS ──
+
+  function updatePage(id){
+    const input = document.getElementById('page-' + id);
+    const page = parseInt(input && input.value);
+    if (!page && page !== 0) return;
+    const books = loadBooks();
+    const b = books.find(x => x.id === id);
+    if (!b) return;
+    if (!b.progress) b.progress = [];
+    const today = getTodayKey();
+    const last = b.progress[b.progress.length - 1];
+    // one entry per day — a second update today replaces the first
+    if (last && last.date === today) last.page = page;
+    else b.progress.push({ date: today, page });
+
+    if (b.pages && page >= b.pages) {
+      b.status = 'finished';
+      b.finished = today;
+    }
+    saveBooks(books);
+    tickReadTask();
+    renderHobbies();
+  }
+
+  // logging pages counts as having read today
+  function tickReadTask(){
+    const key = getTodayKey();
+    const day = getDay(key);
+    let task = day.tasks.find(t => t.text.trim().toLowerCase() === 'read');
+    if (task) task.done = true;
+    else day.tasks.push({ text:'Read', detail:'', done:true });
+    saveDay(key, day);
+    renderToday();
+  }
+
+  function setBookStatus(id, status){
+    const books = loadBooks();
+    const b = books.find(x => x.id === id);
+    if (!b) return;
+    b.status = status;
+    if (status === 'finished') b.finished = getTodayKey();
+    if (status === 'reading') { delete b.finished; }
+    saveBooks(books);
+    renderHobbies();
+  }
+
+  function rateBook(id, n){
+    const books = loadBooks();
+    const b = books.find(x => x.id === id);
+    if (!b) return;
+    b.rating = (b.rating === n ? 0 : n);
+    saveBooks(books);
+    renderHobbies();
+  }
+
+  function saveTakeaways(id, text){
+    const books = loadBooks();
+    const b = books.find(x => x.id === id);
+    if (!b) return;
+    b.takeaways = text;
+    saveBooks(books);
+  }
+
+  function deleteBook(id){
+    saveBooks(loadBooks().filter(x => x.id !== id));
+    readingState.view = 'shelf';
+    renderHobbies();
+  }
+
+  // ── QUOTES ──
+
+  function addQuote(){
+    const t = (document.getElementById('quoteText') || {}).value || '';
+    if (!t.trim()) return;
+    const bookSel = document.getElementById('quoteBook');
+    const pageEl = document.getElementById('quotePage');
+    const q = loadQuotes();
+    q.push({
+      id: uid(), text: t.trim(),
+      bookId: bookSel && bookSel.value ? bookSel.value : null,
+      page: pageEl && pageEl.value ? parseInt(pageEl.value) : null,
+      date: getTodayKey()
+    });
+    saveQuotes(q);
+    ['quoteText','quotePage'].forEach(id => {
+      const el = document.getElementById(id); if (el) el.value = '';
+    });
+    renderHobbies();
+  }
+
+  function deleteQuote(id){
+    saveQuotes(loadQuotes().filter(x => x.id !== id));
+    renderHobbies();
+  }
+
+  // ── STATS ──
+
+  function booksFinishedIn(year, month){
+    return loadBooks().filter(b => {
+      if (b.status !== 'finished' || !b.finished) return false;
+      const [y, m] = b.finished.split('-').map(Number);
+      return y === year && (month == null || m === month);
+    }).length;
+  }
+
+  // pages read per week, across every book
+  function pagesByWeek(){
+    const weeks = {};
+    loadBooks().forEach(b => {
+      let prev = 0;
+      (b.progress || []).forEach(p => {
+        const gained = Math.max(0, p.page - prev);
+        prev = p.page;
+        const wk = ymd(weekStartOf(new Date(p.date + 'T00:00:00')));
+        weeks[wk] = (weeks[wk] || 0) + gained;
+      });
+    });
+    return weeks;
+  }
+
+  // ── RENDER ──
+
+  function renderReading(body){
+    if (readingState.view === 'book') return renderBookDetail(body);
+
+    const books = loadBooks();
+    const reading = books.filter(b => b.status === 'reading');
+    const finished = books.filter(b => b.status === 'finished');
+    const abandoned = books.filter(b => b.status === 'abandoned');
+    const now = new Date();
+
+    let h = '';
+
+    // headline numbers
+    const thisMonth = booksFinishedIn(now.getFullYear(), now.getMonth() + 1);
+    const thisYear = booksFinishedIn(now.getFullYear(), null);
+    const weeks = pagesByWeek();
+    const thisWeekPages = weeks[ymd(weekStartOf(now))] || 0;
+    h += `<div class="read-stats">
+            <div class="read-stat"><span class="rs-n">${thisMonth}</span><span class="rs-l">this month</span></div>
+            <div class="read-stat"><span class="rs-n">${thisYear}</span><span class="rs-l">this year</span></div>
+            <div class="read-stat"><span class="rs-n">${thisWeekPages}</span><span class="rs-l">pages this week</span></div>
+          </div>`;
+
+    // currently reading
+    h += '<div class="section-label" style="margin-top:20px">Reading now</div>';
+    if (!reading.length) {
+      h += '<p class="sync-blurb">Nothing on the go — add a book below.</p>';
+    } else {
+      reading.forEach(b => {
+        const pct = pctThrough(b);
+        const cur = currentPage(b);
+        const est = finishEstimate(b);
+        const color = pct != null ? getProgressColor(pct) : 'var(--green)';
+        h += `<div class="book-card">
+          <div class="book-head" onclick="openBook('${b.id}')">
+            <div>
+              <div class="book-title">${escHtml(b.title)}</div>
+              ${b.author ? `<div class="book-author">${escHtml(b.author)}</div>` : ''}
+            </div>
+            <span class="gym-ex-chev">&rsaquo;</span>
+          </div>
+          ${b.pages ? `<div class="res-bar-track" style="margin-top:9px">
+              <div class="res-bar-fill" style="width:${pct}%;background:${color}"></div>
+            </div>
+            <div class="book-meta">page ${cur} of ${b.pages} · ${pct}%${
+              est ? ` · about ${est.days} day${est.days === 1 ? '' : 's'} left` : ''}</div>`
+            : `<div class="book-meta">page ${cur}</div>`}
+          <div class="book-update">
+            <input type="number" inputmode="numeric" id="page-${b.id}" placeholder="page you're on" value=""/>
+            <button class="btn btn-add" onclick="updatePage('${b.id}')">Update</button>
+          </div>
+        </div>`;
+      });
+    }
+
+    // add a book
+    h += '<div class="section-label" style="margin-top:24px">Add a book</div>';
+    h += `<div class="book-search">
+            <input type="text" id="bookSearch" placeholder="Search by title…" autocomplete="off"/>
+            <button class="btn btn-add" onclick="searchBooks()">${readingState.searching ? '…' : 'Find'}</button>
+          </div>`;
+    if (readingState.msg) h += `<p class="sync-blurb">${escHtml(readingState.msg)}</p>`;
+    if (readingState.results.length) {
+      h += '<div class="book-results">' + readingState.results.map((r, i) =>
+        `<div class="book-result" onclick="addBookFrom(${i})">
+           <div class="book-result-title">${escHtml(r.title)}</div>
+           <div class="book-result-meta">${escHtml(r.author)}${r.year ? ' · ' + r.year : ''}${r.pages ? ' · ' + r.pages + 'pp' : ''}</div>
+         </div>`).join('') + '</div>';
+    }
+    h += `<button class="aims-toggle" onclick="toggleAims('manualbook')">
+            <span class="aims-label">Or add it by hand</span>
+            <span class="aims-meta"></span>
+            <span class="aims-chev" id="aimsChev-manualbook">&rsaquo;</span>
+          </button>
+          <div class="aims-body collapsed" id="aimsBody-manualbook">
+            <div class="goal-add">
+              <input type="text" id="bookTitle" placeholder="Title"/>
+              <div class="res-add-line2">
+                <input type="text" id="bookAuthor" placeholder="Author" style="flex:1;min-width:0"/>
+                <input type="number" id="bookPages" placeholder="Pages" style="width:88px"/>
+              </div>
+              <div class="date-pair">
+                <label>Started<input type="date" id="bookStarted"/></label>
+                <label>Finished<input type="date" id="bookFinished"/></label>
+              </div>
+              <button class="btn btn-add" style="width:100%" onclick="addBookManual()">Add</button>
+              <p class="gym-note">Leave Finished blank if you're still reading it. Filling it in files the book as read.</p>
+            </div>
+          </div>`;
+
+    // when you were reading what
+    h += `<button class="aims-toggle" onclick="toggleAims('readcal')">
+            <span class="aims-label">Reading calendar</span>
+            <span class="aims-meta"></span>
+            <span class="aims-chev" id="aimsChev-readcal">&rsaquo;</span>
+          </button>
+          <div class="aims-body collapsed" id="aimsBody-readcal">${readingCalendarHTML()}</div>`;
+
+    // shelves
+    h += `<button class="aims-toggle" onclick="toggleAims('grimport')">
+            <span class="aims-label">Import from Goodreads</span>
+            <span class="aims-meta"></span>
+            <span class="aims-chev" id="aimsChev-grimport">&rsaquo;</span>
+          </button>
+          <div class="aims-body collapsed" id="aimsBody-grimport">
+            <p class="sync-blurb">On goodreads.com go to <em>My Books → Import and export → Export Library</em>, wait for the file, then pick it here. Nothing is uploaded anywhere — it's read on your phone.</p>
+            <input type="file" accept=".csv,text/csv" class="gr-file" onchange="importGoodreads(this)"/>
+          </div>
+
+    `;
+
+    h += shelfSection('finished', 'Finished', finished);
+    h += shelfSection('abandoned', 'Abandoned', abandoned);
+
+    // quotes
+    const quotes = loadQuotes();
+    h += `<button class="aims-toggle" onclick="toggleAims('quotes')">
+            <span class="aims-label">Quotes</span>
+            <span class="aims-meta">${quotes.length || ''}</span>
+            <span class="aims-chev" id="aimsChev-quotes">&rsaquo;</span>
+          </button>
+          <div class="aims-body" id="aimsBody-quotes">
+            <div class="goal-add">
+              <textarea id="quoteText" rows="3" placeholder="Something worth keeping…"></textarea>
+              <div class="res-add-line2">
+                <select id="quoteBook" style="flex:1;min-width:0">
+                  <option value="">No book</option>
+                  ${books.map(b => `<option value="${b.id}">${escHtml(b.title)}</option>`).join('')}
+                </select>
+                <input type="number" id="quotePage" placeholder="p." style="width:70px"/>
+                <button class="btn btn-add" onclick="addQuote()">Save</button>
+              </div>
+            </div>
+            ${quotes.length ? [...quotes].reverse().map(q => {
+              const bk = books.find(b => b.id === q.bookId);
+              return `<div class="quote-card">
+                <div class="quote-text">${escHtml(q.text)}</div>
+                <div class="quote-meta">
+                  ${bk ? escHtml(bk.title) : 'Unattributed'}${q.page ? ' · p.' + q.page : ''}
+                  <button class="gym-set-del" onclick="deleteQuote('${q.id}')">✕</button>
+                </div>
+              </div>`;
+            }).join('') : '<p class="sync-blurb">Nothing saved yet.</p>'}
+          </div>`;
+
+    // pages per week
+    const wkKeys = Object.keys(weeks).sort();
+    if (wkKeys.length > 1) {
+      h += `<div class="chart-block">
+              <div class="chart-title">Pages per week</div>
+              ${lineChart({ series:[{ name:'Pages', color:'#1a4d2e', values: wkKeys.map(k => weeks[k]) }],
+                            labels: wkKeys, yLabel:'pages' })}
+            </div>`;
+    }
+
+    h += `<a class="goodreads-link" href="https://www.goodreads.com" target="_blank" rel="noopener">Open Goodreads</a>`;
+
+    body.innerHTML = h;
+    applyAimsState('quotes');
+    applyAimsState('finished');
+    applyAimsState('abandoned');
+    applyAimsState('manualbook');
+    applyAimsState('readcal');
+    applyAimsState('grimport');
+  }
+
+  function shelfSection(key, label, list){
+    return `<button class="aims-toggle" onclick="toggleAims('${key}')">
+        <span class="aims-label">${label}</span>
+        <span class="aims-meta">${list.length || ''}</span>
+        <span class="aims-chev" id="aimsChev-${key}">&rsaquo;</span>
+      </button>
+      <div class="aims-body" id="aimsBody-${key}">
+        ${list.length ? [...list].reverse().map(b => `
+          <div class="book-row" onclick="openBook('${b.id}')">
+            <div>
+              <div class="book-title">${escHtml(b.title)}</div>
+              ${b.author ? `<div class="book-author">${escHtml(b.author)}</div>` : ''}
+            </div>
+            <div class="book-row-right">${b.rating ? '★'.repeat(b.rating) : ''}</div>
+          </div>`).join('') : '<p class="sync-blurb">Empty.</p>'}
+      </div>`;
+  }
+
+  function openBook(id){
+    readingState.view = 'book';
+    readingState.bookId = id;
+    renderHobbies();
+  }
+  function readingBack(){
+    readingState.view = 'shelf';
+    renderHobbies();
+  }
+
+  function renderBookDetail(body){
+    const b = loadBooks().find(x => x.id === readingState.bookId);
+    if (!b) { readingBack(); return; }
+    const quotes = loadQuotes().filter(q => q.bookId === b.id);
+    const pct = pctThrough(b);
+    const prog = b.progress || [];
+
+    let h = `<button class="gym-back" onclick="readingBack()">&lsaquo; Back</button>
+             <div class="screen-title" style="padding-top:6px">${escHtml(b.title)}</div>
+             ${b.author ? `<div class="book-author" style="margin-bottom:14px">${escHtml(b.author)}</div>` : ''}`;
+
+    // how much of your life this book has had
+    const readDays = b.started
+      ? Math.max(1, Math.round(((b.finished ? new Date(b.finished) : new Date()) - new Date(b.started)) / 86400000) + 1)
+      : null;
+    const pagesRead = currentPage(b);
+    const sessions = prog.length;
+
+    h += `<div class="read-stats" style="margin-top:14px">
+            <div class="read-stat"><span class="rs-n">${pagesRead}</span><span class="rs-l">pages${b.pages ? ' of ' + b.pages : ''}</span></div>
+            ${readDays ? `<div class="read-stat"><span class="rs-n">${readDays}</span><span class="rs-l">days</span></div>` : ''}
+            <div class="read-stat"><span class="rs-n">${sessions}</span><span class="rs-l">sittings</span></div>
+          </div>`;
+
+    if (b.pages) {
+      const color = getProgressColor(pct);
+      h += `<div class="res-bar-track" style="margin-top:12px">
+              <div class="res-bar-fill" style="width:${pct}%;background:${color}"></div>
+            </div>
+            <div class="book-meta">${pct}% through</div>`;
+    }
+
+    h += `<div class="date-pair" style="margin-top:14px">
+            <label>Started<input type="date" value="${b.started || ''}"
+                   onchange="setBookDate('${b.id}','started',this.value)"/></label>
+            <label>Finished<input type="date" value="${b.finished || ''}"
+                   onchange="setBookDate('${b.id}','finished',this.value)"/></label>
+          </div>`;
+
+    h += `<div class="section-label" style="margin-top:18px">Calendar colour</div>
+          <div class="swatch-row">
+            ${BOOK_COLORS.map(c => `<button class="swatch${bookColor(b.id) === c ? ' active' : ''}"
+                style="background:${c}" onclick="setBookColor('${b.id}','${c}')"></button>`).join('')}
+          </div>`;
+
+    h += `<div class="book-status">
+            ${['reading','finished','abandoned'].map(s =>
+              `<button class="gym-variant${b.status === s ? ' active' : ''}" onclick="setBookStatus('${b.id}','${s}')">${s[0].toUpperCase() + s.slice(1)}</button>`
+            ).join('')}
+          </div>`;
+
+    if (b.status === 'finished') {
+      h += `<div class="section-label" style="margin-top:20px">Rating</div>
+            <div class="star-row">${[1,2,3,4,5].map(n =>
+              `<button class="star${b.rating >= n ? ' on' : ''}" onclick="rateBook('${b.id}',${n})">★</button>`
+            ).join('')}</div>
+            <div class="section-label" style="margin-top:18px">What you took from it</div>
+            <textarea class="takeaway" rows="5" placeholder="A few lines…"
+                      onchange="saveTakeaways('${b.id}',this.value)">${escHtml(b.takeaways || '')}</textarea>`;
+    }
+
+    if (prog.length > 1) {
+      h += `<div class="chart-block">
+              <div class="chart-title">Progress</div>
+              ${lineChart({ series:[{ name:'Page', color:'#1a4d2e', values: prog.map(p => p.page) }],
+                            labels: prog.map(p => p.date), yLabel:'page' })}
+            </div>`;
+    }
+
+    if (quotes.length) {
+      h += '<div class="section-label" style="margin-top:22px">Quotes</div>';
+      h += [...quotes].reverse().map(q => `<div class="quote-card">
+              <div class="quote-text">${escHtml(q.text)}</div>
+              <div class="quote-meta">${q.page ? 'p.' + q.page : ''}
+                <button class="gym-set-del" onclick="deleteQuote('${q.id}')">✕</button></div>
+            </div>`).join('');
+    }
+
+    const gr = 'https://www.goodreads.com/search?q=' + encodeURIComponent(b.title + ' ' + (b.author || ''));
+    h += `<a class="goodreads-link" href="${gr}" target="_blank" rel="noopener">Find on Goodreads</a>`;
+
+    h += `<button class="sync-btn gym-drop" style="width:100%;margin-top:14px"
+            onclick="deleteBook('${b.id}')">Remove this book</button>`;
+
+    body.innerHTML = h;
+  }
+
   // ── HOBBIES ──
   // Shell for now: the tab, the switcher, and a placeholder per hobby. Each one
   // gets built out on its own rather than all at once.
@@ -3821,20 +4666,42 @@ el.innerHTML = content;
 
   function pickHobby(key){
     localStorage.setItem('theosHobby', key);
+    readingState.view = 'shelf';
+    hobbyMenuOpen = false;
     renderHobbies();
   }
 
+  // a hobby in a detail view takes over the screen — no switcher in the way
+  function hobbySubview(){
+    return currentHobby() === 'reading' && readingState.view !== 'shelf';
+  }
+
+  let hobbyMenuOpen = false;
+  function toggleHobbyMenu(){ hobbyMenuOpen = !hobbyMenuOpen; renderHobbies(); }
+
   function renderHobbies(){
     const cur = currentHobby();
-    const chips = document.getElementById('hobbyChips');
-    if (chips) {
-      chips.innerHTML = HOBBIES.map(hb =>
-        `<button class="gym-chip${hb.key === cur ? ' active' : ''}" onclick="pickHobby('${hb.key}')">${hb.name}</button>`
-      ).join('');
+    const hb = HOBBIES.find(x => x.key === cur) || HOBBIES[0];
+    const header = document.getElementById('hobbyHeader');
+    const sub = hobbySubview();
+
+    if (header) {
+      header.innerHTML = sub ? '' : `
+        <div class="hobby-head">
+          <span class="hobby-head-fixed">Hobbies —</span>
+          <button class="hobby-pick" onclick="toggleHobbyMenu()">
+            ${escHtml(hb.name)}<span class="hobby-caret${hobbyMenuOpen ? ' open' : ''}">&rsaquo;</span>
+          </button>
+        </div>
+        ${hobbyMenuOpen ? `<div class="hobby-menu">
+          ${HOBBIES.filter(x => x.key !== cur).map(x =>
+            `<button class="hobby-menu-item" onclick="pickHobby('${x.key}')">${escHtml(x.name)}</button>`).join('')}
+        </div>` : ''}`;
     }
+
     const body = document.getElementById('hobbyBody');
     if (!body) return;
-    const hb = HOBBIES.find(x => x.key === cur) || HOBBIES[0];
+    if (cur === 'reading') return renderReading(body);
     body.innerHTML = `
       <div class="hobby-soon">
         <div class="hobby-soon-title">${escHtml(hb.name)}</div>
