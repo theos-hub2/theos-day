@@ -1,9 +1,10 @@
 /* theo's day — service worker
    Bump CACHE_VERSION whenever you change index.html so the new version installs. */
 
-const CACHE_VERSION = 'v37';
+const CACHE_VERSION = 'v42';
 const SHELL_CACHE = `td-shell-${CACHE_VERSION}`;
 const FONT_CACHE = 'td-fonts';
+const COVER_CACHE = 'td-covers';
 
 const SHELL_ASSETS = [
   './',
@@ -56,6 +57,12 @@ self.addEventListener('fetch', event => {
     return;
   }
 
+  // Book covers — cache once so the shelf works offline and doesn't re-fetch
+  if (url.hostname === 'covers.openlibrary.org') {
+    event.respondWith(staleWhileRevalidate(req, COVER_CACHE));
+    return;
+  }
+
   // Anything else cross-origin (e.g. api.chess.com) — always live, never cached.
   // If it fails offline the app already handles that gracefully.
   if (url.origin !== self.location.origin) return;
@@ -89,12 +96,14 @@ function staleWhileRevalidate(req, cacheName) {
 // ── PUSH NOTIFICATIONS ──
 
 self.addEventListener('push', event => {
-  let data = { title: "theo's day", body: 'Time to check in' };
+  let data = { title: 'Time to check in', body: '' };
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (e) {}
+  // an empty body means one bold line under the app name, rather than two
+  if (!data.title) { data.title = data.body || 'Time to check in'; data.body = ''; }
 
   event.waitUntil(
     self.registration.showNotification(data.title, {
-      body: data.body,
+      body: data.body || '',
       icon: './icon-192.png',
       badge: './icon-192.png',
       tag: data.tag || 'theos-day',

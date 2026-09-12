@@ -1147,22 +1147,84 @@
 }
 .hobby-menu-item:last-child { border-bottom: none; }
 .hobby-menu-item:active { background: var(--green); color: var(--white); }
-.date-pair { display: flex; gap: 8px; }
+.date-pair { display: flex; gap: 8px; min-width: 0; }
 .date-pair label {
-  flex: 1; display: flex; flex-direction: column; gap: 4px;
+  flex: 1 1 0; min-width: 0;
+  display: flex; flex-direction: column; gap: 4px;
   font-size: 0.68rem; font-weight: 600; letter-spacing: 0.08em;
   text-transform: uppercase; color: var(--muted);
 }
+/* iOS date fields size to their own content and blow past the container
+   unless their native appearance is switched off */
 .date-pair input {
-  width: 100%; padding: 9px 10px;
+  width: 100%; min-width: 0; max-width: 100%;
+  -webkit-appearance: none; appearance: none;
+  padding: 9px 8px;
   border: 1.5px solid var(--border); background: var(--white); color: var(--ink);
   font-family: 'EB Garamond', serif; font-size: 15px; outline: none; border-radius: 3px;
 }
 .read-day { cursor: default; min-height: 44px; }
 .swatch-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.card-btn {
+  padding: 8px 12px; border: 1.5px solid var(--border); background: transparent;
+  color: var(--ink-mid); font-family: 'EB Garamond', serif;
+  font-size: 0.75rem; font-weight: 600; letter-spacing: 0.05em;
+  text-transform: uppercase; border-radius: 20px; cursor: pointer; flex-shrink: 0;
+}
+.card-panel { margin-top: 12px; }
+.card-panel textarea {
+  width: 100%; padding: 11px 12px; border: 1.5px solid var(--green);
+  background: var(--white); color: var(--ink);
+  font-family: 'EB Garamond', serif; font-size: 16px; line-height: 1.45;
+  outline: none; resize: none; border-radius: 3px;
+}
+.card-panel input {
+  padding: 10px 12px; border: 1.5px solid var(--border); background: var(--white);
+  color: var(--ink); font-family: 'EB Garamond', serif; outline: none; border-radius: 3px;
+}
+.finish-panel {
+  margin-top: 18px; padding: 16px;
+  background: var(--off-white); border: 1.5px solid var(--green); border-radius: 4px;
+}
+.finish-title { font-size: 1rem; font-weight: 700; color: var(--green); }
+.finish-actions { display: flex; gap: 8px; margin-top: 12px; }
+.finish-actions .sync-btn, .finish-actions .btn-add { flex: 1; }
+
+.shelf-count {
+  font-size: 0.68rem; color: var(--muted); font-weight: 600; margin-left: 4px;
+}
+.shelf-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
+  gap: 12px 10px; margin-top: 4px;
+}
+.spine {
+  background: transparent; border: none; padding: 0; cursor: pointer; text-align: left;
+}
+.spine-art {
+  position: relative; width: 100%; aspect-ratio: 2 / 3;
+  border: 1.5px solid var(--border); border-radius: 3px; overflow: hidden;
+  display: flex; align-items: flex-end;
+}
+.spine-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.spine-rating {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  background: rgba(250,250,248,0.9); color: var(--green);
+  font-size: 0.6rem; text-align: center; padding: 1px 0; letter-spacing: -1px;
+}
+.spine-note {
+  position: absolute; top: 5px; right: 5px;
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--green-light); border: 1px solid var(--white);
+}
+.spine-title {
+  font-size: 0.7rem; line-height: 1.25; color: var(--ink);
+  margin-top: 5px; font-family: 'EB Garamond', serif;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+
 .book-foot {
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 10px; margin-top: 10px;
+  display: flex; align-items: center; gap: 7px;
+  margin-top: 11px; flex-wrap: wrap;
 }
 .read-today {
   padding: 8px 14px; border: 1.5px solid var(--green); background: transparent;
@@ -1192,6 +1254,18 @@
 .reading-nav { display: flex; gap: 8px; margin-top: 18px; }
 .reading-nav .sync-btn { flex: 1; padding: 13px; }
 
+.date-edit-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+}
+.untrack-btn {
+  flex-shrink: 0; padding: 4px 10px;
+  border: 1.5px solid var(--border); background: transparent;
+  color: var(--muted); font-family: 'EB Garamond', serif;
+  font-size: 0.68rem; font-weight: 600; border-radius: 20px; cursor: pointer;
+}
+.untrack-btn.on { background: var(--border); color: var(--ink-mid); }
+.date-edit-row.untracked { opacity: 0.65; }
+
 .date-edit-row {
   padding: 11px 0;
   border-bottom: 1px solid var(--border);
@@ -1210,6 +1284,48 @@
 }
 .swatch.active { border-color: var(--green); border-width: 3px; }
 .read-day .cal-day-number { font-weight: 700; }
+
+.title-with-action {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+}
+.gear-btn {
+  flex-shrink: 0; width: 38px; height: 38px; margin-top: 14px;
+  background: transparent; border: none; cursor: pointer;
+  color: var(--muted); padding: 0;
+}
+.gear-btn svg { width: 22px; height: 22px; stroke: currentColor; stroke-width: 1.6; fill: none; }
+.drawer-scrim {
+  position: fixed; inset: 0; background: rgba(26,26,26,0.35);
+  opacity: 0; pointer-events: none; transition: opacity 0.25s ease; z-index: 300;
+}
+.drawer-scrim.open { opacity: 1; pointer-events: auto; }
+.drawer {
+  position: fixed; top: 0; right: 0; bottom: 0;
+  width: min(86%, 400px); background: var(--white);
+  border-left: 1.5px solid var(--border);
+  transform: translateX(100%); transition: transform 0.25s ease;
+  z-index: 310; display: flex; flex-direction: column;
+  padding-top: env(safe-area-inset-top);
+}
+.drawer.open { transform: translateX(0); box-shadow: -8px 0 24px rgba(0,0,0,0.12); }
+.drawer-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 18px 12px; border-bottom: 1.5px solid var(--border);
+}
+.drawer-title {
+  font-size: 1.3rem; font-weight: 700; color: var(--green); letter-spacing: -0.01em;
+}
+.drawer-close {
+  background: transparent; border: none; font-size: 1.1rem;
+  color: var(--muted); cursor: pointer; padding: 4px 8px;
+}
+.drawer-body {
+  flex: 1; overflow-y: auto; padding: 16px 18px;
+  padding-bottom: calc(28px + env(safe-area-inset-bottom));
+  -webkit-overflow-scrolling: touch;
+}
+
+.title-with-action .screen-title { padding-top: 18px; }
 
 /* ── READING ── */
 .read-stats { display: flex; gap: 8px; margin-top: 16px; }
@@ -1436,6 +1552,41 @@
   margin-top: 2px;
 }
 .gym-ex-last.gym-now { color: var(--green); font-weight: 600; }
+.gym-weekbar { display: flex; align-items: stretch; gap: 6px; padding-top: 4px; margin-bottom: 12px; }
+.gym-weekbar .cal-nav { width: 30px; height: auto; flex-shrink: 0; font-size: 1.2rem; }
+.gym-weekbar .week-strip { flex: 1; min-width: 0; margin-bottom: 0; padding: 8px 6px; }
+.daybar-right { display: flex; align-items: center; gap: 7px; flex-shrink: 0; }
+.weight-chip {
+  padding: 5px 11px; border: 1.5px solid var(--border); background: transparent;
+  color: var(--muted); font-family: 'EB Garamond', serif;
+  font-size: 0.72rem; font-weight: 600; border-radius: 20px; cursor: pointer;
+}
+.weight-chip.has { border-color: var(--green-pale); color: var(--green); }
+.mini {
+  flex-shrink: 0; width: 26px; height: 38px; padding: 0;
+  border: 1.5px solid var(--border); background: transparent;
+  font-family: 'EB Garamond', serif; font-size: 0.8rem; font-weight: 700;
+  color: var(--muted); border-radius: 3px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.mini.flag.on { background: var(--ink); border-color: var(--ink); color: var(--white); }
+.mini.dot::after {
+  content: ''; width: 11px; height: 11px; border-radius: 50%;
+  background: var(--border); display: block;
+}
+.mini.dot.form-good::after { background: #52b788; }
+.mini.dot.form-ok::after   { background: #e0a800; }
+.mini.dot.form-poor::after { background: #c0392b; }
+.gym-more {
+  margin-top: 10px; padding-top: 11px; border-top: 1px solid var(--border);
+}
+.gym-more-row { display: flex; gap: 7px; flex-wrap: wrap; }
+.gym-set-actions .sync-btn.on { background: var(--green); border-color: var(--green); color: var(--white); }
+.gym-options {
+  margin-top: 12px; padding: 14px;
+  background: var(--off-white); border: 1.5px solid var(--border); border-radius: 4px;
+}
+
 .gym-swap {
   display: flex;
   align-items: center;
@@ -1495,6 +1646,15 @@
   cursor: pointer;
 }
 
+.bar-line {
+  display: block; width: 100%; text-align: left;
+  padding: 7px 0; margin-bottom: 10px;
+  background: transparent; border: none;
+  color: var(--muted); font-family: 'EB Garamond', serif;
+  font-size: 0.74rem; font-weight: 600; letter-spacing: 0.04em;
+  text-transform: uppercase; cursor: pointer;
+}
+.bar-line-change { color: var(--green); text-decoration: underline; text-underline-offset: 3px; margin-left: 6px; }
 .bar-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
 .bar-chip {
   padding: 6px 11px; border: 1.5px solid var(--border); background: transparent;
@@ -2543,59 +2703,8 @@
         </div>
       </div>
 
-      <button class="aims-toggle" onclick="toggleAims('sync')">
-        <span class="aims-label">Sync</span>
-        <span class="aims-meta"></span>
-        <span class="aims-chev" id="aimsChev-sync">&rsaquo;</span>
-      </button>
-      <div class="aims-body" id="aimsBody-sync">
-              <p class="sync-blurb">Pushes a snapshot to a secret GitHub gist so the Scriptable widget can read it. Your token is stored on this phone only.</p>
-
-        <div class="sync-block">
-          <label class="sync-label" for="gistToken">GitHub token</label>
-          <input type="password" id="gistToken" placeholder="ghp_…" autocomplete="off" autocapitalize="off" spellcheck="false"/>
-          <div class="token-actions">
-            <button class="sync-btn" id="tokenToggle" onclick="toggleToken()">Show</button>
-            <button class="sync-btn" onclick="copyToken()">Copy</button>
-          </div>
-
-          <label class="sync-label" for="gistId">Gist ID</label>
-          <input type="text" id="gistId" placeholder="created automatically" autocomplete="off" autocapitalize="off" spellcheck="false"/>
-
-          <div class="sync-actions">
-            <button class="btn btn-add" onclick="saveSyncSettings()">Save</button>
-            <button class="sync-btn" onclick="createGist()">Create gist</button>
-            <button class="sync-btn" onclick="syncNow()">Sync now</button>
-          </div>
-
-          <div class="sync-status" id="syncStatus">Not set up yet</div>
-        </div>
-
-        <div class="section-label" style="margin-top:26px">Notifications</div>
-      <p class="sync-blurb">Add as many as you like. Times fire on the hour. You can use {done}, {total} and {left} in a message and they'll be filled in.</p>
-
-      <div class="sync-block">
-        <div id="notifList"></div>
-        <button class="sync-btn" onclick="addNotif()" style="width:100%;margin-top:4px">+ Add notification</button>
-
-        <div class="sync-actions" style="margin-top:14px">
-          <button class="btn btn-add" onclick="enableNotifications()">Enable</button>
-          <button class="sync-btn" onclick="testNotification()">Test</button>
-          <button class="sync-btn" onclick="disableNotifications()">Turn off</button>
-        </div>
-
-        <div class="sync-status" id="notifStatus">Not set up yet</div>
-      </div>
-
-      <div class="sync-block" id="rawUrlBlock" style="display:none">
-          <div class="sync-label">Widget URL</div>
-          <div class="sync-url" id="rawUrl"></div>
-          <button class="sync-btn" onclick="copyRawUrl()">Copy</button>
-        </div>
-      </div>
     </div>
 
-    <!-- CALENDAR -->
     <!-- MONTH -->
     <div class="panel" id="panel-month">
       <div class="cal-header">
@@ -2678,7 +2787,12 @@
 
     <!-- RESOLUTIONS -->
     <div class="panel" id="panel-resolutions">
-      <div class="screen-title">Resolutions</div>
+      <div class="title-with-action">
+        <div class="screen-title">Resolutions</div>
+        <button class="gear-btn" onclick="openSettings()" aria-label="Settings">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 13.5a7.7 7.7 0 0 0 0-3l1.8-1.4-1.9-3.2-2.1.8a7.6 7.6 0 0 0-2.6-1.5L14.2 3h-4.4l-.4 2.2a7.6 7.6 0 0 0-2.6 1.5l-2.1-.8-1.9 3.2 1.8 1.4a7.7 7.7 0 0 0 0 3l-1.8 1.4 1.9 3.2 2.1-.8a7.6 7.6 0 0 0 2.6 1.5l.4 2.2h4.4l.4-2.2a7.6 7.6 0 0 0 2.6-1.5l2.1.8 1.9-3.2z"/></svg>
+        </button>
+      </div>
       <div class="section-label">2026</div>
 
       <div class="top-progress" id="topProgress-year"></div>
@@ -2699,6 +2813,56 @@
     </div>
 
   </div><!-- end screens -->
+
+  <!-- SETTINGS DRAWER -->
+  <div class="drawer-scrim" id="drawerScrim" onclick="closeSettings()"></div>
+  <aside class="drawer" id="settingsDrawer" aria-hidden="true">
+    <div class="drawer-head">
+      <span class="drawer-title">Settings</span>
+      <button class="drawer-close" onclick="closeSettings()" aria-label="Close">✕</button>
+    </div>
+    <div class="drawer-body">
+
+      <div class="section-label">Sync</div>
+      <p class="sync-blurb">Pushes a snapshot to a secret GitHub gist so the widget can read it. Your token stays on this phone.</p>
+      <div class="sync-block">
+        <label class="sync-label" for="gistToken">GitHub token</label>
+        <input type="password" id="gistToken" placeholder="ghp_…" autocomplete="off" autocapitalize="off" spellcheck="false"/>
+        <div class="token-actions">
+          <button class="sync-btn" id="tokenToggle" onclick="toggleToken()">Show</button>
+          <button class="sync-btn" onclick="copyToken()">Copy</button>
+        </div>
+        <label class="sync-label" for="gistId">Gist ID</label>
+        <input type="text" id="gistId" placeholder="created automatically" autocomplete="off" autocapitalize="off" spellcheck="false"/>
+        <div class="sync-actions">
+          <button class="btn btn-add" onclick="saveSyncSettings()">Save</button>
+          <button class="sync-btn" onclick="createGist()">Create gist</button>
+          <button class="sync-btn" onclick="syncNow()">Sync now</button>
+        </div>
+        <div class="sync-status" id="syncStatus">Not set up yet</div>
+      </div>
+
+      <div class="sync-block" id="rawUrlBlock" style="display:none">
+        <div class="sync-label">Widget URL</div>
+        <div class="sync-url" id="rawUrl"></div>
+        <button class="sync-btn" onclick="copyRawUrl()">Copy</button>
+      </div>
+
+      <div class="section-label" style="margin-top:26px">Notifications</div>
+      <p class="sync-blurb">Times fire on the hour. {done}, {total} and {left} get filled in.</p>
+      <div class="sync-block">
+        <div id="notifList"></div>
+        <button class="sync-btn" onclick="addNotif()" style="width:100%;margin-top:4px">+ Add notification</button>
+        <div class="sync-actions" style="margin-top:14px">
+          <button class="btn btn-add" onclick="enableNotifications()">Enable</button>
+          <button class="sync-btn" onclick="testNotification()">Test</button>
+          <button class="sync-btn" onclick="disableNotifications()">Turn off</button>
+        </div>
+        <div class="sync-status" id="notifStatus">Not set up yet</div>
+      </div>
+
+    </div>
+  </aside>
 
   <nav class="tabbar">
     <button class="tabbtn active" onclick="switchTab('today',this)" aria-label="Today">
@@ -4010,7 +4174,6 @@ el.innerHTML = content;
   fetchChessRating();
 
   applyAimsState('banners');
-  applyAimsState('sync');
 
   renderToday();
 
@@ -4031,7 +4194,8 @@ el.innerHTML = content;
   }
   function saveQuotes(q){ localStorage.setItem('theosQuotes', JSON.stringify(q)); queueSync(); }
 
-  let readingState = { view:'shelf', bookId:null, results:[], searching:false, msg:'', adding:false };
+  let readingState = { view:'shelf', bookId:null, results:[], searching:false, msg:'',
+                       adding:false, finishing:null, quoting:null, shelfQuery:'' };
 
   const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
@@ -4043,6 +4207,13 @@ el.innerHTML = content;
   }
 
   function readToday(b){ return bookSessions(b).includes(getTodayKey()); }
+
+  function daysAgo(dateKey){
+    const n = Math.round((new Date(getTodayKey()) - new Date(dateKey)) / 86400000);
+    if (n <= 0) return 'today';
+    if (n === 1) return 'yesterday';
+    return n + ' days ago';
+  }
 
   function markRead(id){
     const books = loadBooks();
@@ -4078,7 +4249,7 @@ el.innerHTML = content;
     readingState.msg = '';
     renderHobbies();
     try {
-      const url = 'https://openlibrary.org/search.json?limit=6&fields=key,title,author_name,number_of_pages_median,first_publish_year&q='
+      const url = 'https://openlibrary.org/search.json?limit=6&fields=key,title,author_name,number_of_pages_median,first_publish_year,cover_i&q='
                 + encodeURIComponent(q.trim());
       const res = await fetch(url);
       if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -4087,7 +4258,8 @@ el.innerHTML = content;
         title: d.title,
         author: (d.author_name || [])[0] || '',
         pages: d.number_of_pages_median || 0,
-        year: d.first_publish_year || ''
+        year: d.first_publish_year || '',
+        cover: d.cover_i || 0
       }));
       if (!readingState.results.length) readingState.msg = 'Nothing found — add it by hand.';
     } catch (e) {
@@ -4101,7 +4273,7 @@ el.innerHTML = content;
   function addBookFrom(i){
     const r = readingState.results[i];
     if (!r) return;
-    addBook(r.title, r.author, r.pages);
+    addBook(r.title, r.author, r.pages, '', '', { cover: r.cover });
     readingState.results = [];
     readingState.adding = false;
     renderHobbies();
@@ -4117,13 +4289,15 @@ el.innerHTML = content;
     renderHobbies();
   }
 
-  function addBook(title, author, pages, started, finished){
+  function addBook(title, author, pages, started, finished, extra){
     const books = loadBooks();
     const b = {
       id: uid(), title, author, pages: pages || 0,
       status: 'reading', started: started || getTodayKey(),
       sessions: [], rating: 0, takeaways: ''
     };
+    if (extra && extra.cover) b.cover = extra.cover;
+    if (extra && extra.isbn) b.isbn = extra.isbn;
     if (finished) { b.status = 'finished'; b.finished = finished; }
     books.push(b);
     saveBooks(books);
@@ -4148,6 +4322,35 @@ el.innerHTML = content;
     renderHobbies();
   }
 
+  // "I read this, but I've no idea when I started" — keeps it off the calendar
+  // and out of the list of dates still to fill in
+  function toggleUntracked(id){
+    const books = loadBooks();
+    const b = books.find(x => x.id === id);
+    if (!b) return;
+    if (b.noStart) { delete b.noStart; if (!b.started) b.started = b.finished || ''; }
+    else { b.noStart = true; b.started = ''; }
+    saveBooks(books);
+    renderHobbies();
+  }
+
+  // everything finished before 2026 in one go
+  function markPre2026(){
+    const books = loadBooks();
+    let n = 0;
+    books.forEach(b => {
+      if (b.status !== 'finished') return;
+      if (b.noStart) return;
+      if (b.finished && b.finished >= '2026-01-01') return;
+      b.noStart = true;
+      b.started = '';
+      n++;
+    });
+    saveBooks(books);
+    readingState.msg = `Marked ${n} book${n === 1 ? '' : 's'} as untracked.`;
+    renderHobbies();
+  }
+
   function setBookStatus(id, status){
     const books = loadBooks();
     const b = books.find(x => x.id === id);
@@ -4160,6 +4363,55 @@ el.innerHTML = content;
     }
     if (status === 'toread') { delete b.finished; b.started = ''; }
     saveBooks(books);
+    renderHobbies();
+  }
+
+  // Finishing opens an optional panel. You can rate it now or walk away —
+  // books without takeaways are marked in the shelf so you can come back.
+  function finishBook(id){
+    setBookStatusQuiet(id, 'finished');
+    readingState.finishing = id;
+    renderHobbies();
+  }
+
+  function setBookStatusQuiet(id, status){
+    const books = loadBooks();
+    const b = books.find(x => x.id === id);
+    if (!b) return;
+    b.status = status;
+    if (status === 'finished' && !b.finished) b.finished = getTodayKey();
+    saveBooks(books);
+  }
+
+  function closeFinish(){
+    readingState.finishing = null;
+    renderHobbies();
+  }
+
+  function saveFinishNotes(id){
+    const el = document.getElementById('finishNotes');
+    if (el) saveTakeaways(id, el.value);
+    readingState.finishing = null;
+    renderHobbies();
+  }
+
+  function startQuote(id){
+    readingState.quoting = readingState.quoting === id ? null : id;
+    renderHobbies();
+  }
+
+  function saveCardQuote(id){
+    const t = (document.getElementById('cardQuote') || {}).value || '';
+    if (!t.trim()) { readingState.quoting = null; renderHobbies(); return; }
+    const pageEl = document.getElementById('cardQuotePage');
+    const q = loadQuotes();
+    q.push({
+      id: uid(), text: t.trim(), bookId: id,
+      page: pageEl && pageEl.value ? parseInt(pageEl.value) : null,
+      date: getTodayKey()
+    });
+    saveQuotes(q);
+    readingState.quoting = null;
     renderHobbies();
   }
 
@@ -4197,10 +4449,10 @@ el.innerHTML = content;
   // ── QUOTES ──
 
   function addQuote(){
-    const t = (document.getElementById('quoteText') || {}).value || '';
+    const t = (document.getElementById('newQuoteText') || {}).value || '';
     if (!t.trim()) return;
-    const bookSel = document.getElementById('quoteBook');
-    const pageEl = document.getElementById('quotePage');
+    const bookSel = document.getElementById('newQuoteBook');
+    const pageEl = document.getElementById('newQuotePage');
     const q = loadQuotes();
     q.push({
       id: uid(), text: t.trim(),
@@ -4264,6 +4516,8 @@ el.innerHTML = content;
     const iTitle = col('Title'), iAuthor = col('Author'), iPages = col('Number of Pages');
     const iRead = col('Date Read'), iAdded = col('Date Added'), iShelf = col('Exclusive Shelf');
     const iRating = col('My Rating'), iReview = col('My Review');
+    const iIsbn13 = col('ISBN13'), iIsbn = col('ISBN');
+    const cleanIsbn = s => String(s || '').replace(/[^0-9Xx]/g, '');
     if (iTitle < 0) throw new Error('that does not look like a Goodreads export');
 
     const books = loadBooks();
@@ -4288,6 +4542,8 @@ el.innerHTML = content;
         rating: iRating >= 0 ? parseInt(r[iRating]) || 0 : 0,
         takeaways: iReview >= 0 ? (r[iReview] || '').trim() : ''
       };
+      const isbn = cleanIsbn(iIsbn13 >= 0 ? r[iIsbn13] : '') || cleanIsbn(iIsbn >= 0 ? r[iIsbn] : '');
+      if (isbn.length >= 10) b.isbn = isbn;
       const readOn = iRead >= 0 ? grDate(r[iRead]) : '';
       const addedOn = iAdded >= 0 ? grDate(r[iAdded]) : '';
       if (b.status === 'finished') {
@@ -4328,6 +4584,14 @@ el.innerHTML = content;
     b.color = color;
     saveBooks(books);
     renderHobbies();
+  }
+
+  // Covers live on Open Library's servers, so the app stores a link rather than
+  // an image. No cover, no problem — the spine falls back to its colour.
+  function coverUrl(b){
+    if (b.cover) return `https://covers.openlibrary.org/b/id/${b.cover}-M.jpg`;
+    if (b.isbn)  return `https://covers.openlibrary.org/b/isbn/${b.isbn}-M.jpg`;
+    return '';
   }
 
   function booksOn(dateKey){
@@ -4423,7 +4687,27 @@ el.innerHTML = content;
       abandoned: books.filter(b => b.status === 'abandoned').length
     };
 
-    let h = '<div class="section-label" style="margin-top:18px">Reading now</div>';
+    let h = '';
+
+    if (readingState.finishing) {
+      const fb = books.find(x => x.id === readingState.finishing);
+      if (fb) {
+        h += `<div class="finish-panel">
+          <div class="finish-title">Finished ${escHtml(fb.title)}</div>
+          <div class="star-row" style="margin-top:10px">${[1,2,3,4,5].map(n =>
+            `<button class="star${fb.rating >= n ? ' on' : ''}" onclick="rateBook('${fb.id}',${n})">★</button>`
+          ).join('')}</div>
+          <textarea id="finishNotes" class="takeaway" rows="4" style="margin-top:12px"
+                    placeholder="What you took from it — or leave this for later">${escHtml(fb.takeaways || '')}</textarea>
+          <div class="finish-actions">
+            <button class="sync-btn" onclick="closeFinish()">Later</button>
+            <button class="btn btn-add" onclick="saveFinishNotes('${fb.id}')">Save</button>
+          </div>
+        </div>`;
+      }
+    }
+
+    h += '<div class="section-label" style="margin-top:18px">Reading now</div>';
 
     if (!reading.length) {
       h += '<p class="sync-blurb">Nothing on the go.</p>';
@@ -4439,12 +4723,25 @@ el.innerHTML = content;
             </div>
             <span class="gym-ex-chev">&rsaquo;</span>
           </div>
+          <div class="book-meta">${
+            (b.started ? 'started ' + daysAgo(b.started) : 'not started') +
+            (days ? ' · ' + days + ' day' + (days === 1 ? '' : 's') + ' read' : '')
+          }</div>
           <div class="book-foot">
-            <span class="book-meta">${days ? days + ' day' + (days === 1 ? '' : 's') + ' read' : 'not started'}</span>
             <button class="read-today${done ? ' done' : ''}" onclick="markRead('${b.id}')">
               ${done ? '✓ Read today' : 'Read today'}
             </button>
+            <button class="card-btn" onclick="startQuote('${b.id}')">Quote</button>
+            <button class="card-btn" onclick="finishBook('${b.id}')">Finished</button>
           </div>
+          ${readingState.quoting === b.id ? `
+            <div class="card-panel">
+              <textarea id="cardQuote" rows="3" placeholder="Something worth keeping…"></textarea>
+              <div class="res-add-line2" style="margin-top:8px">
+                <input type="number" id="cardQuotePage" placeholder="page" style="flex:1;min-width:0"/>
+                <button class="btn btn-add" onclick="saveCardQuote('${b.id}')">Save</button>
+              </div>
+            </div>` : ''}
         </div>`;
       });
     }
@@ -4493,6 +4790,7 @@ el.innerHTML = content;
 
   function readingGo(view){
     readingState.view = view;
+    if (view === 'shelves') readingState.shelfQuery = '';
     renderHobbies();
   }
   function readingBack(){
@@ -4509,32 +4807,66 @@ el.innerHTML = content;
 
   function renderShelves(body){
     const books = loadBooks();
+    const q = readingState.shelfQuery.trim().toLowerCase();
+    const match = b => !q || b.title.toLowerCase().includes(q) ||
+                       (b.author || '').toLowerCase().includes(q);
+
     let h = `<button class="gym-back" onclick="readingBack()">&lsaquo; Back</button>
-             <div class="screen-title" style="padding-top:6px">Shelves</div>`;
-    h += shelfSection('toread', 'To read', books.filter(b => b.status === 'toread'));
-    h += shelfSection('finished', 'Finished', books.filter(b => b.status === 'finished'));
-    h += shelfSection('abandoned', 'Abandoned', books.filter(b => b.status === 'abandoned'));
+             <div class="screen-title" style="padding-top:6px">Shelves</div>
+             <input type="text" class="streak-search" id="shelfSearch" placeholder="Search title or author…"
+                    value="${escHtml(readingState.shelfQuery)}" autocomplete="off"
+                    oninput="shelfSearch(this.value)"/>
+             <div id="shelfResults"></div>`;
     body.innerHTML = h;
-    ['toread','finished','abandoned'].forEach(applyAimsState);
+    renderShelfGrids();
   }
 
-  function shelfSection(key, label, list){
-    const sorted = [...list].sort((a, b) => (b.finished || b.started || '').localeCompare(a.finished || a.started || ''));
-    return `<button class="aims-toggle" onclick="toggleAims('${key}')">
-        <span class="aims-label">${label}</span>
-        <span class="aims-meta">${list.length || ''}</span>
-        <span class="aims-chev" id="aimsChev-${key}">&rsaquo;</span>
-      </button>
-      <div class="aims-body" id="aimsBody-${key}">
-        ${sorted.length ? sorted.map(b => `
-          <div class="book-row" onclick="openBook('${b.id}')">
-            <div>
-              <div class="book-title">${escHtml(b.title)}</div>
-              ${b.author ? `<div class="book-author">${escHtml(b.author)}</div>` : ''}
-            </div>
-            <div class="book-row-right">${b.rating ? '★'.repeat(b.rating) : ''}</div>
-          </div>`).join('') : '<p class="sync-blurb">Empty.</p>'}
-      </div>`;
+  function shelfSearch(v){
+    readingState.shelfQuery = v;
+    renderShelfGrids();   // leaves the search box alone so the keyboard stays up
+  }
+
+  function renderShelfGrids(){
+    const box = document.getElementById('shelfResults');
+    if (!box) return;
+    const books = loadBooks();
+    const q = readingState.shelfQuery.trim().toLowerCase();
+    const match = b => !q || b.title.toLowerCase().includes(q) ||
+                       (b.author || '').toLowerCase().includes(q);
+
+    const groups = [
+      ['reading', 'Reading now'],
+      ['toread', 'To read'],
+      ['finished', 'Finished'],
+      ['abandoned', 'Abandoned']
+    ];
+
+    let h = '';
+    let any = false;
+    groups.forEach(([status, label]) => {
+      const list = books.filter(b => b.status === status && match(b))
+        .sort((a, b2) => (b2.finished || b2.started || '').localeCompare(a.finished || a.started || ''));
+      if (!list.length) return;
+      any = true;
+      h += `<div class="section-label" style="margin-top:20px">${label} <span class="shelf-count">${list.length}</span></div>`;
+      h += '<div class="shelf-grid">' + list.map(b => spineHTML(b)).join('') + '</div>';
+    });
+
+    box.innerHTML = any ? h : `<p class="sync-blurb">${q ? 'Nothing matches that.' : 'No books yet.'}</p>`;
+  }
+
+  // a spine: the cover if Open Library has one, otherwise the book's colour
+  function spineHTML(b){
+    const url = coverUrl(b);
+    const needsNote = b.status === 'finished' && !(b.takeaways || '').trim();
+    return `<button class="spine" onclick="openBook('${b.id}')">
+      <div class="spine-art" style="background:${bookColor(b.id)}">
+        ${url ? `<img src="${url}" alt="" loading="lazy" onerror="this.style.display='none'"/>` : ''}
+        ${b.rating ? `<span class="spine-rating">${'★'.repeat(b.rating)}</span>` : ''}
+        ${needsNote ? '<span class="spine-note" title="No takeaways yet"></span>' : ''}
+      </div>
+      <div class="spine-title">${escHtml(b.title)}</div>
+    </button>`;
   }
 
   // ── YEAR ──
@@ -4587,13 +4919,13 @@ el.innerHTML = content;
           </button>
           <div class="aims-body collapsed" id="aimsBody-quotes">
             <div class="goal-add">
-              <textarea id="quoteText" rows="3" placeholder="Something worth keeping…"></textarea>
+              <textarea id="newQuoteText" rows="3" placeholder="Something worth keeping…"></textarea>
               <div class="res-add-line2">
-                <select id="quoteBook" style="flex:1;min-width:0">
+                <select id="newQuoteBook" style="flex:1;min-width:0">
                   <option value="">No book</option>
                   ${books.map(b => `<option value="${b.id}">${escHtml(b.title)}</option>`).join('')}
                 </select>
-                <input type="number" id="quotePage" placeholder="p." style="width:70px"/>
+                <input type="number" id="newQuotePage" placeholder="p." style="width:70px"/>
                 <button class="btn btn-add" onclick="addQuote()">Save</button>
               </div>
             </div>
@@ -4617,7 +4949,10 @@ el.innerHTML = content;
     const books = loadBooks();
     const dated = books.filter(b => b.status === 'finished' || b.status === 'reading')
                        .sort((a, b2) => (b2.finished || b2.started || '').localeCompare(a.finished || a.started || ''));
-    const unset = dated.filter(b => !b.started || b.started === b.finished).length;
+    const needsDate = b => !b.noStart && (!b.started || b.started === b.finished);
+    const unset = dated.filter(needsDate).length;
+    const prePending = books.filter(b => b.status === 'finished' && !b.noStart &&
+                                         (!b.finished || b.finished < '2026-01-01')).length;
 
     let h = `<button class="gym-back" onclick="readingBack()">&lsaquo; Back</button>
              <div class="screen-title" style="padding-top:6px">Manage</div>`;
@@ -4639,15 +4974,23 @@ el.innerHTML = content;
             <span class="aims-chev" id="aimsChev-dates">&rsaquo;</span>
           </button>
           <div class="aims-body collapsed" id="aimsBody-dates">
-            ${dated.length ? `<p class="sync-blurb">When did you actually start each one?</p>` + dated.map(b => `
-              <div class="date-edit-row${(!b.started || b.started === b.finished) ? ' needs' : ''}">
-                <div class="book-title">${escHtml(b.title)}</div>
+            ${dated.length ? `<p class="sync-blurb">When did you actually start each one? If you weren't tracking back then, mark it untracked and it'll stop asking.</p>
+              ${prePending ? `<button class="sync-btn" style="width:100%;margin-bottom:12px" onclick="markPre2026()">Mark ${prePending} pre-2026 book${prePending === 1 ? '' : 's'} as untracked</button>` : ''}`
+              + dated.map(b => `
+              <div class="date-edit-row${needsDate(b) ? ' needs' : ''}${b.noStart ? ' untracked' : ''}">
+                <div class="date-edit-head">
+                  <div class="book-title">${escHtml(b.title)}</div>
+                  <button class="untrack-btn${b.noStart ? ' on' : ''}" onclick="toggleUntracked('${b.id}')">
+                    ${b.noStart ? 'untracked' : "didn't track"}
+                  </button>
+                </div>
+                ${b.noStart ? `<div class="book-meta">${b.finished ? 'Finished ' + shortDate(b.finished) : 'No dates'}</div>` : `
                 <div class="date-pair" style="margin-top:6px">
                   <label>Started<input type="date" value="${b.started || ''}"
                          onchange="setBookDate('${b.id}','started',this.value)"/></label>
                   <label>Finished<input type="date" value="${b.finished || ''}"
                          onchange="setBookDate('${b.id}','finished',this.value)"/></label>
-                </div>
+                </div>`}
               </div>`).join('') : '<p class="sync-blurb">Nothing to edit yet.</p>'}
           </div>`;
 
@@ -4799,8 +5142,8 @@ el.innerHTML = content;
   // keeps its own history, because 40kg on a barbell isn't 40kg on dumbbells.
   const DEFAULT_ROUTINE = {
     Upper: [
-      { name:'Bench Press',              sets:4, reps:'6-10',  variants:['Barbell','DB','Machine'] },
-      { name:'Row',                      sets:4, reps:'6-10',  variants:['Barbell','DB','Chest-Supported'] },
+      { name:'Bench Press',              sets:4, reps:'6-10' },
+      { name:'Row',                      sets:4, reps:'6-10' },
       { name:'Seated DB Shoulder Press', sets:3, reps:'8-12' },
       { name:'Lat Pulldown',             sets:3, reps:'10-12' },
       { name:'Pec Deck',                 sets:3, reps:'12-15' },
@@ -4808,23 +5151,23 @@ el.innerHTML = content;
       { name:'Tricep Pushdown',          sets:3, reps:'12-15' }
     ],
     Lower: [
-      { name:'Back Squat',          sets:4, reps:'6-10', variants:['Barbell','Smith','Leg Press'] },
-      { name:'Romanian Deadlift',   sets:3, reps:'8-10', variants:['Barbell','DB'] },
-      { name:'Walking Lunge',       sets:3, reps:'10-12', variants:['DB','Barbell','Bodyweight'] },
+      { name:'Back Squat',          sets:4, reps:'6-10' },
+      { name:'Romanian Deadlift',   sets:3, reps:'8-10' },
+      { name:'Walking Lunge',       sets:3, reps:'10-12' },
       { name:'Leg Curl',            sets:3, reps:'10-12' },
-      { name:'Standing Calf Raise', sets:4, reps:'12-15', variants:['Machine','Smith','DB'] },
+      { name:'Standing Calf Raise', sets:4, reps:'12-15' },
       { name:'Weighted Plank',      sets:3, reps:'30-60s', mode:'time' }
     ],
     Push: [
-      { name:'Incline Press',             sets:4, reps:'6-10',  variants:['Barbell','DB'] },
-      { name:'Overhead Press',            sets:3, reps:'8-12',  variants:['Barbell','DB'] },
+      { name:'Incline Press',             sets:4, reps:'6-10' },
+      { name:'Overhead Press',            sets:3, reps:'8-12' },
       { name:'Cable Fly',                 sets:3, reps:'12-15' },
       { name:'DB Lateral Raise',          sets:3, reps:'12-15' },
       { name:'Tricep Pushdown',           sets:3, reps:'12-15' },
       { name:'Overhead Tricep Extension', sets:3, reps:'12-15' }
     ],
     Pull: [
-      { name:'Row',              sets:4, reps:'6-10',  variants:['Barbell','DB','Chest-Supported'] },
+      { name:'Row',              sets:4, reps:'6-10' },
       { name:'Lat Pulldown',     sets:4, reps:'8-12' },
       { name:'Seated Cable Row', sets:3, reps:'10-12' },
       { name:'Face Pull',        sets:3, reps:'12-15' },
@@ -4832,11 +5175,11 @@ el.innerHTML = content;
       { name:'Preacher Curl',    sets:3, reps:'10-12' }
     ],
     Legs: [
-      { name:'Deadlift',              sets:4, reps:'5-8',   variants:['Barbell','Trap Bar','Smith'] },
-      { name:'Hip Thrust',            sets:3, reps:'10-12', variants:['Barbell','Machine','Bodyweight'] },
+      { name:'Deadlift',              sets:4, reps:'5-8' },
+      { name:'Hip Thrust',            sets:3, reps:'10-12' },
       { name:'Bulgarian Split Squat', sets:3, reps:'10 ea' },
       { name:'Leg Curl',              sets:3, reps:'10-12' },
-      { name:'Seated Calf Raise',     sets:4, reps:'15', variants:['Machine','Barbell'] },
+      { name:'Seated Calf Raise',     sets:4, reps:'15' },
       { name:'Cable Crunch',          sets:3, reps:'15' }
     ]
   };
@@ -4955,6 +5298,10 @@ el.innerHTML = content;
     workout: undefined,   // undefined = not picked yet; null = set to rest
     exercise: null,
     expanded: {},
+    barOpen: {},
+    moreOpen: {},
+    bodyOpen: false,
+    optionsOpen: false,
     suggest: []
   };
 
@@ -5319,23 +5666,55 @@ el.innerHTML = content;
     localStorage.setItem('theosBars', JSON.stringify(bars));
   }
 
+  // Which bar an exercise is on, worked out from the variant you picked. A
+  // dumbbell press has no bar; a Smith squat isn't a 20kg barbell.
+  const VARIANT_BAR = { 'Barbell':'barbell', 'EZ Bar':'ez', 'Trap Bar':'trap', 'Smith':'smith' };
+
+  // barbell lifts that carry no variants of their own
+  const IMPLIED_BAR = {
+    'good-morning':'barbell', 'rack-pull':'barbell', 'pendlay-row':'barbell',
+    'sumo-deadlift':'barbell', 'landmine-press':'barbell', 'svend-press':'barbell'
+  };
+
+  function inferredBar(ex, variant){
+    if (variant) return VARIANT_BAR[variant] || '';
+    if (variantsFor(ex)) return '';
+    return IMPLIED_BAR[slug(ex.name)] || '';
+  }
+
   function sessionBar(base){
     const sess = currentSession();
     return (sess && sess.bars && sess.bars[base]) || '';
   }
 
+  // an explicit 'none' overrides the guess
+  function effectiveBar(ex, variant){
+    const chosen = sessionBar(slug(ex.name));
+    if (chosen === 'none') return '';
+    return chosen || inferredBar(ex, variant);
+  }
+
   function pickBar(base, kind){
-    const cur = sessionBar(base);
     writeSession(s => {
       if (!s.bars) s.bars = {};
-      if (cur === kind) delete s.bars[base]; else s.bars[base] = kind;
+      s.bars[base] = kind;
     });
+    gymState.barOpen[base] = false;
+    renderGym();
+  }
+
+  function toggleMore(key){
+    gymState.moreOpen[key] = !gymState.moreOpen[key];
+    renderGym();
+  }
+
+  function toggleBarPicker(base){
+    gymState.barOpen[base] = !gymState.barOpen[base];
     renderGym();
   }
 
   // adds the bar's weight to whatever is already in the box
-  function addBar(key, idx, base){
-    const kind = sessionBar(base);
+  function addBar(key, idx, base, kind){
     if (!kind) return;
     const add = loadBars()[kind] || 0;
     writeSession(s => {
@@ -5524,12 +5903,9 @@ el.innerHTML = content;
     const names = ['Su','Mo','Tu','We','Th','Fr','Sa'];
     const today = getTodayKey();
 
-    let h = `<div class="gym-week-nav">
+    let h = `<div class="gym-weekbar">
                <button class="cal-nav" onclick="gymWeekShift(-1)" aria-label="Previous week">&lsaquo;</button>
-               <span class="gym-week-label">${start.toLocaleDateString('en-US',fmt)} — ${end.toLocaleDateString('en-US',fmt)}</span>
-               <button class="cal-nav" onclick="gymWeekShift(1)" aria-label="Next week">&rsaquo;</button>
-             </div>
-             <div class="week-strip">`;
+               <div class="week-strip">`;
 
     for (let i = 0; i < 7; i++) {
       const d = new Date(start); d.setDate(d.getDate() + i);
@@ -5544,7 +5920,9 @@ el.innerHTML = content;
               ${sessionLogged(key) ? '<span class="gym-dot"></span>' : ''}
             </div>`;
     }
-    return h + '</div>';
+    return h + `</div>
+      <button class="cal-nav" onclick="gymWeekShift(1)" aria-label="Next week">&rsaquo;</button>
+    </div>`;
   }
 
   function renderGymSession(root){
@@ -5554,12 +5932,20 @@ el.innerHTML = content;
 
     let h = gymWeekStripHTML();
 
+    const wAll = loadWeights()[gymState.date] || {};
+    const wSlot = gymState.weightSlot || defaultSlot();
+    const wShown = wAll[wSlot] != null ? fmtNum(wAll[wSlot]) + 'kg'
+                 : (Object.keys(wAll).length ? fmtNum(wAll[Object.keys(wAll)[0]]) + 'kg' : 'weight');
+
     h += `<div class="gym-daybar">
-            <span class="gym-daybar-date">${dObj.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})}</span>
-            ${isToday ? '' : '<button class="gym-today-btn" onclick="gymToday()">Today</button>'}
+            <span class="gym-daybar-date">${dObj.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})}</span>
+            <div class="daybar-right">
+              <button class="weight-chip${Object.keys(wAll).length ? ' has' : ''}" onclick="toggleBody()">${wShown}</button>
+              ${isToday ? '' : '<button class="gym-today-btn" onclick="gymToday()">Today</button>'}
+            </div>
           </div>`;
 
-    h += weightBoxHTML();
+    if (gymState.bodyOpen) h += weightBoxHTML();
 
     h += '<div class="gym-chips">';
     const sched = scheduledFor(gymState.date);
@@ -5637,14 +6023,24 @@ el.innerHTML = content;
           h += '</div>';
         }
 
-        const barKind = sessionBar(base);
         const bars = loadBars();
-        h += `<div class="bar-row">
-                <span class="gym-swap-label">Bar</span>
-                ${Object.keys(BAR_LABELS).map(k =>
-                  `<button class="bar-chip${barKind === k ? ' active' : ''}" onclick="pickBar('${base}','${k}')">${BAR_LABELS[k]} ${bars[k]}</button>`
-                ).join('')}
-              </div>`;
+        const barKind = effectiveBar(ex, variant);
+        const barOpen = !!gymState.barOpen[base];
+
+        // one quiet line when a bar applies, nothing at all when it doesn't
+        if (barKind && !barOpen) {
+          h += `<button class="bar-line" onclick="toggleBarPicker('${base}')">
+                  ${BAR_LABELS[barKind]} ${bars[barKind]}kg <span class="bar-line-change">change</span>
+                </button>`;
+        } else if (barOpen) {
+          h += `<div class="bar-row">
+                  <span class="gym-swap-label">Bar</span>
+                  ${Object.keys(BAR_LABELS).map(k =>
+                    `<button class="bar-chip${barKind === k ? ' active' : ''}" onclick="pickBar('${base}','${k}')">${BAR_LABELS[k]} ${bars[k]}</button>`
+                  ).join('')}
+                  <button class="bar-chip${barKind ? '' : ' active'}" onclick="pickBar('${base}','none')">None</button>
+                </div>`;
+        }
 
         sets.forEach((s, i) => {
           const sKey = mixed ? s.key : key;
@@ -5653,7 +6049,7 @@ el.innerHTML = content;
                   <span class="gym-set-n">${i+1}</span>
                   <input type="number" inputmode="decimal" placeholder="kg" value="${s.w ?? ''}"
                          onchange="setVal('${sKey}',${sIdx},'w',this.value)"/>
-                  ${barKind ? `<button class="bar-add" onclick="addBar('${sKey}',${sIdx},'${base}')" title="Add bar weight">+${bars[barKind]}</button>` : ''}
+                  ${barKind ? `<button class="bar-add" onclick="addBar('${sKey}',${sIdx},'${base}','${barKind}')" title="Add bar weight">+${bars[barKind]}</button>` : ''}
                   <span class="gym-x">${mode === 'time' ? 'for' : '×'}</span>
                   <input type="number" inputmode="numeric" placeholder="${mode === 'time' ? 'sec' : 'reps'}"
                          value="${s.r ?? ''}" onchange="setVal('${sKey}',${sIdx},'r',this.value)"/>
@@ -5661,51 +6057,68 @@ el.innerHTML = content;
                   ${mixed ? `<select class="gym-set-var" onchange="setSetVariant('${base}','${s.key}',${s.idx},this.value)">
                       ${variantsFor(ex).map(v => `<option value="${v}"${v === s.variant ? ' selected' : ''}>${escHtml(pretty(v))}</option>`).join('')}
                     </select>` : ''}
+                  <button class="mini flag${s.f ? ' on' : ''}" onclick="toggleFailure('${sKey}',${sIdx})"
+                          title="To failure">f</button>
+                  <button class="mini dot form-${s.form || 'none'}" onclick="cycleForm('${sKey}',${sIdx})"
+                          title="Form"></button>
                   <button class="gym-set-del" onclick="removeSet('${sKey}',${sIdx})">✕</button>
-                </div>
-                <div class="set-extras">
-                  <button class="set-flag${s.f ? ' on' : ''}" onclick="toggleFailure('${sKey}',${sIdx})">to failure</button>
-                  <button class="form-dot form-${s.form || 'none'}" onclick="cycleForm('${sKey}',${sIdx})">${
-                    s.form === 'good' ? 'good form' : s.form === 'ok' ? 'ok form' : s.form === 'poor' ? 'poor form' : 'form'
-                  }</button>
                 </div>`;
         });
+        const moreOpen = !!gymState.moreOpen[key];
         h += `<div class="gym-set-actions">
                 <button class="sync-btn" onclick="${mixed ? `addMixedSet('${base}')` : `addSet('${key}')`}">+ Set</button>
-                <button class="sync-btn" onclick="openExercise('${key}','${escHtml(label).replace(/'/g,"\\'")}')">History</button>
-                <button class="sync-btn gym-drop" onclick="removeSessionExercise('${ex.key || base}')">Remove</button>
+                <button class="sync-btn${moreOpen ? ' on' : ''}" onclick="toggleMore('${key}')">${moreOpen ? 'Less' : 'More'}</button>
               </div>`;
 
-        if (variantsFor(ex)) {
-          h += `<button class="gym-mix-toggle" onclick="toggleMix('${base}')">${
-            mixed ? 'Use one variant for all sets' : 'Mix variants across sets'}</button>`;
-        }
+        // History, Bar, Remove, Swap and Mix are all rare — out of the way
+        if (moreOpen) {
+          h += `<div class="gym-more">
+                  <div class="gym-more-row">
+                    <button class="sync-btn" onclick="openExercise('${key}','${escHtml(label).replace(/'/g,"\\'")}')">History</button>
+                    ${(!barKind && !barOpen) ? `<button class="sync-btn" onclick="toggleBarPicker('${base}')">Bar</button>` : ''}
+                    <button class="sync-btn gym-drop" onclick="removeSessionExercise('${ex.key || base}')">Remove</button>
+                  </div>`;
 
-        const subs = exerciseSubs(ex.name, 3);
-        if (subs.length) {
-          h += '<div class="gym-swap"><span class="gym-swap-label">Swap for</span>' +
-               subs.map(n => `<button class="gym-swap-chip" onclick="swapExercise('${base}','${escHtml(n).replace(/'/g,"\\'")}')">${escHtml(pretty(n))}</button>`).join('') +
-               '</div>';
+          const subs = exerciseSubs(ex.name, 3);
+          if (subs.length) {
+            h += '<div class="gym-swap"><span class="gym-swap-label">Swap for</span>' +
+                 subs.map(n => `<button class="gym-swap-chip" onclick="swapExercise('${base}','${escHtml(n).replace(/'/g,"\\'")}')">${escHtml(pretty(n))}</button>`).join('') +
+                 '</div>';
+          }
+          if (variantsFor(ex)) {
+            h += `<button class="gym-mix-toggle" onclick="toggleMix('${base}')">${
+              mixed ? 'Use one variant for all sets' : 'Mix variants across sets'}</button>`;
+          }
+          h += '</div>';
         }
         h += '</div>';
       }
       h += '</div>';
     });
 
-    h += `<div class="gym-addex">
-            <input type="text" id="gymAddEx" placeholder="Add an exercise to this session…"
-                   autocapitalize="words" spellcheck="false" autocomplete="off"
-                   oninput="gymSuggest(this.value)" onclick="gymToggleSuggest(event)"/>
-            <button class="btn btn-add" onclick="addSessionExercise()">Add</button>
-          </div>
-          <div class="gym-suggest" id="gymSuggestBox"></div>
-          <p class="gym-note">Adding or removing here changes this session only. Use Edit routine to change future ones.</p>`;
-
     const finished = sess && sess.done;
     h += `<button class="gym-finish${finished ? ' done' : ''}" onclick="finishSession()">
             ${finished ? '✓ Session logged' : (isToday ? 'Finish session' : 'Save session')}
           </button>`;
-    h += `<button class="sync-btn gym-edit-btn" onclick="gymGo('edit')">Edit routine</button>`;
+
+    // everything you don't need mid-set
+    h += `<button class="sync-btn gym-edit-btn" onclick="toggleGymOptions()">${
+            gymState.optionsOpen ? 'Close options' : 'Session options'}</button>`;
+
+    if (gymState.optionsOpen) {
+      h += `<div class="gym-options">
+        <div class="sync-label">Add an exercise</div>
+        <div class="gym-addex">
+          <input type="text" id="gymAddEx" placeholder="Search exercises…"
+                 autocapitalize="words" spellcheck="false" autocomplete="off"
+                 oninput="gymSuggest(this.value)" onclick="gymToggleSuggest(event)"/>
+          <button class="btn btn-add" onclick="addSessionExercise()">Add</button>
+        </div>
+        <div class="gym-suggest" id="gymSuggestBox"></div>
+        <p class="gym-note">Adding or removing here changes this session only.</p>
+        <button class="sync-btn" style="width:100%;margin-top:6px" onclick="gymGo('edit')">Edit routine</button>
+      </div>`;
+    }
 
     root.innerHTML = h;
     renderSuggestBox();
@@ -5729,6 +6142,12 @@ el.innerHTML = content;
     box.innerHTML = gymState.suggest.map(n =>
       `<div class="gym-suggest-item" onclick="chooseSuggestion('${escHtml(n).replace(/'/g,"\\'")}')">${escHtml(pretty(n))}</div>`
     ).join('');
+  }
+
+  function toggleGymOptions(){
+    gymState.optionsOpen = !gymState.optionsOpen;
+    gymState.suggest = [];
+    renderGym();
   }
 
   function gymToggleSuggest(e){
@@ -6016,6 +6435,11 @@ el.innerHTML = content;
     else w[date][slot] = Number(value);
     if (!Object.keys(w[date]).length) delete w[date];
     saveWeights(w);
+    renderGym();
+  }
+
+  function toggleBody(){
+    gymState.bodyOpen = !gymState.bodyOpen;
     renderGym();
   }
 
@@ -6470,6 +6894,21 @@ el.innerHTML = content;
     document.getElementById('rawUrlBlock').style.display = 'block';
   }
 
+  function openSettings(){
+    document.getElementById('settingsDrawer').classList.add('open');
+    document.getElementById('drawerScrim').classList.add('open');
+    document.getElementById('settingsDrawer').setAttribute('aria-hidden', 'false');
+    renderNotifs();
+    initSyncScreen();
+    initNotifScreen();
+  }
+
+  function closeSettings(){
+    document.getElementById('settingsDrawer').classList.remove('open');
+    document.getElementById('drawerScrim').classList.remove('open');
+    document.getElementById('settingsDrawer').setAttribute('aria-hidden', 'true');
+  }
+
   function toggleToken(){
     const inp = document.getElementById('gistToken');
     const btn = document.getElementById('tokenToggle');
@@ -6711,8 +7150,7 @@ el.innerHTML = content;
   async function testNotification(){
     if (Notification.permission !== 'granted') return setNotifStatus('Enable notifications first', 'err');
     const reg = await navigator.serviceWorker.ready;
-    reg.showNotification("theo's day", {
-      body: 'Notifications are working.',
+    reg.showNotification('Notifications are working.', {
       icon: './icon-192.png',
       tag: 'test'
     });
