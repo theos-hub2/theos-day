@@ -667,16 +667,26 @@
 
     let h = '';
     let any = false;
+    const shown = [];
     groups.forEach(([status, label]) => {
       const list = books.filter(b => b.status === status && match(b))
         .sort((a, b2) => (b2.finished || b2.started || '').localeCompare(a.finished || a.started || ''));
       if (!list.length) return;
       any = true;
-      h += `<div class="section-label" style="margin-top:20px">${label} <span class="shelf-count">${list.length}</span></div>`;
-      h += '<div class="shelf-grid">' + list.map(b => spineHTML(b)).join('') + '</div>';
+      const key = 'sh-' + status;
+      shown.push(key);
+      h += `<button class="aims-toggle" onclick="toggleAims('${key}')">
+              <span class="aims-label">${label}</span>
+              <span class="aims-meta">${list.length}</span>
+              <span class="aims-chev" id="aimsChev-${key}">&rsaquo;</span>
+            </button>
+            <div class="aims-body" id="aimsBody-${key}">
+              <div class="shelf-grid">${list.map(b => spineHTML(b)).join('')}</div>
+            </div>`;
     });
 
     box.innerHTML = any ? h : `<p class="sync-blurb">${q ? 'Nothing matches that.' : 'No books yet.'}</p>`;
+    shown.forEach(applyAimsState);
   }
 
   // a spine: the cover if Open Library has one, otherwise the book's colour
