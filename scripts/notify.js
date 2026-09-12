@@ -163,7 +163,9 @@ async function saveState(state) {
       continue;
     }
     const body = fillTemplate(item.message, snap);
-    const payload = JSON.stringify({ title: "theo's day", body, tag: 'td-' + (item.time || 'now') });
+    // iOS already puts the app name at the top of the banner, so sending
+    // "theo's day" as the title too just repeats it. The message is the title.
+    const payload = JSON.stringify({ title: body, body: '', tag: 'td-' + (item.time || 'now') });
     try {
       await webpush.sendNotification(cfg.subscription, payload);
       const lateBy = (now.hour * 60 + now.minute) - toMinutes(item.time);
