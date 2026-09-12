@@ -2612,3 +2612,52 @@
     ::-webkit-scrollbar { width: 6px; }
     ::-webkit-scrollbar-track { background: var(--white); }
     ::-webkit-scrollbar-thumb { background: var(--green); opacity: 0.5; border-radius: 3px; }
+
+/* ── DRAWING ── */
+.draw-since {
+  margin-top: 18px; padding: 14px 16px;
+  background: var(--off-white); border: 1.5px solid var(--border);
+  border-left: 3px solid var(--green-pale); border-radius: 4px;
+  font-size: 0.95rem; font-weight: 600; color: var(--ink);
+}
+.draw-since.today { border-left-color: var(--green); color: var(--green); }
+.draw-since.cold { border-left-color: #e0a800; }
+.draw-since.none { color: var(--muted); font-weight: 500; font-style: italic; }
+
+.draw-mins { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.draw-mins input {
+  width: 74px; flex-shrink: 0; padding: 10px;
+  border: 1.5px solid var(--green); background: var(--white); color: var(--ink);
+  font-family: 'EB Garamond', serif; font-weight: 700; font-size: 16px;
+  text-align: center; outline: none; border-radius: 3px;
+}
+.draw-input {
+  width: 100%; margin-top: 10px; padding: 11px 12px;
+  border: 1.5px solid var(--border); background: var(--white); color: var(--ink);
+  font-family: 'EB Garamond', serif; font-size: 16px; outline: none; border-radius: 3px;
+}
+
+.draw-row {
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;
+  padding: 12px 2px; border-bottom: 1px solid var(--border); cursor: pointer;
+}
+.draw-row:last-child { border-bottom: none; }
+.draw-row-main { min-width: 0; }
+.draw-row-top { font-size: 0.95rem; font-weight: 600; color: var(--ink); }
+.draw-row-sub { font-size: 0.78rem; color: var(--muted); margin-top: 3px; }
+.draw-row-right { text-align: right; flex-shrink: 0; }
+.draw-row-date {
+  font-size: 0.68rem; font-weight: 600; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--green);
+}
+.draw-row-felt { font-size: 0.72rem; color: var(--green); margin-top: 3px; letter-spacing: -1px; }
+
+.tally { margin-top: 4px; }
+.tally-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
+.tally-name {
+  flex: 0 0 34%; font-size: 0.82rem; color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.tally-bar { flex: 1; height: 8px; background: var(--off-white); border-radius: 4px; overflow: hidden; }
+.tally-bar i { display: block; height: 100%; background: var(--green-light); border-radius: 4px; }
+.tally-n { flex: 0 0 22px; text-align: right; font-size: 0.78rem; font-weight: 700; color: var(--muted); }

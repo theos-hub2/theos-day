@@ -2,7 +2,7 @@
 // The hobby switcher only. Each hobby lives in its own file:
 //   reading  → app-reading.js
 //   cooking  → app-cooking.js   (not built yet)
-//   drawing  → app-drawing.js   (not built yet)
+//   drawing  → app-drawing.js
 //   chess    → app-chess.js     (not built yet)
 //   writing  → app-writing.js   (not built yet)
 // renderHobbies() hands off to the right renderer; nothing hobby-specific
@@ -14,7 +14,7 @@
 
   const HOBBIES = [
     { key:'chess',   name:'Chess',   note:'Rapid games imported from Chess.com, an archive you can tag and annotate, a study log by phase, and graphs of rating against games played.' },
-    { key:'drawing', name:'Drawing', note:'A log per sketch — subject, location, medium, time spent and how it felt — with sketches per week as the progress line.' },
+    { key:'drawing', name:'Drawing' },
     { key:'cooking', name:'Cooking', note:'Dishes you return to, each with its attempts: rating out of 10, what you would change next time, time taken and the recipe source. Plus a to-try queue.' },
     { key:'reading', name:'Reading', note:'Books with pages as you go, a rating out of 5 and what you took from it on finishing, a separate quote collection, and a link out to Goodreads.' },
     { key:'writing', name:'Writing', note:'Waiting on your Obsidian vault. Fragments captured on the move, pieces tracked and linked out rather than drafted here.' }
@@ -25,13 +25,18 @@
   function pickHobby(key){
     localStorage.setItem('theosHobby', key);
     readingState.view = 'shelf';
+    drawState.view = 'home';
+    drawState.logging = false;
     hobbyMenuOpen = false;
     renderHobbies();
   }
 
   // a hobby in a detail view takes over the screen — no switcher in the way
   function hobbySubview(){
-    return currentHobby() === 'reading' && readingState.view !== 'shelf';
+    const cur = currentHobby();
+    if (cur === 'reading') return readingState.view !== 'shelf';
+    if (cur === 'drawing') return drawState.view !== 'home';
+    return false;
   }
 
   let hobbyMenuOpen = false;
@@ -60,6 +65,7 @@
     const body = document.getElementById('hobbyBody');
     if (!body) return;
     if (cur === 'reading') return renderReading(body);
+    if (cur === 'drawing') return renderDrawing(body);
     body.innerHTML = `
       <div class="hobby-soon">
         <div class="hobby-soon-title">${escHtml(hb.name)}</div>
