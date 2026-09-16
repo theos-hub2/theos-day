@@ -252,6 +252,20 @@
         <div class="sync-status" id="notifStatus">Not set up yet</div>
       </div>
 
+      <div class="section-label" style="margin-top:26px">Data</div>
+      <p class="sync-blurb">Export everything to a file you can keep. Importing replaces everything on this phone with what's in the file.</p>
+      <div class="sync-block">
+        <select id="dataAction" onchange="syncDataActionLabel()">
+          <option value="export">Export</option>
+          <option value="import">Import</option>
+        </select>
+        <input type="file" id="importFile" accept="application/json" style="display:none" onchange="handleImportFile(event)"/>
+        <div class="sync-actions" style="margin-top:14px">
+          <button class="btn btn-add" id="dataActionBtn" onclick="runDataAction()">Export</button>
+        </div>
+        <div class="sync-status" id="dataStatus"></div>
+      </div>
+
     </div>
   </aside>
 

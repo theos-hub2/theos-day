@@ -222,6 +222,82 @@
   }
 
 
+  // ── EXPORT / IMPORT ──
+  function collectBackupData(){
+    const out = {};
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      out[key] = localStorage.getItem(key);
+    }
+    return out;
+  }
+
+  function setDataStatus(msg, cls){
+    const el = document.getElementById('dataStatus');
+    if (!el) return;
+    el.textContent = msg;
+    el.className = 'sync-status' + (cls ? ' ' + cls : '');
+  }
+
+  function syncDataActionLabel(){
+    const action = document.getElementById('dataAction').value;
+    document.getElementById('dataActionBtn').textContent = action === 'import' ? 'Import' : 'Export';
+    setDataStatus('');
+  }
+
+  function runDataAction(){
+    const action = document.getElementById('dataAction').value;
+    if (action === 'import') document.getElementById('importFile').click();
+    else exportBackup();
+  }
+
+  function exportBackup(){
+    const payload = {
+      app: "theo's day",
+      exportedAt: new Date().toISOString(),
+      data: collectBackupData()
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'theos-day-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+    setDataStatus('Exported — save it when prompted', 'ok');
+  }
+
+  function handleImportFile(event){
+    const file = event.target.files && event.target.files[0];
+    event.target.value = ''; // reset so picking the same file again still fires change
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      let payload;
+      try { payload = JSON.parse(reader.result); }
+      catch { return setDataStatus("That file isn't valid JSON", 'err'); }
+      const data = (payload && typeof payload.data === 'object') ? payload.data : payload;
+      if (!data || typeof data !== 'object' || Array.isArray(data)) {
+        return setDataStatus("That file doesn't look like a theo's day backup", 'err');
+      }
+      if (!confirm("This replaces all current data on this phone with what's in the file. This can't be undone. Continue?")) {
+        return setDataStatus('Import cancelled');
+      }
+      applyBackup(data);
+    };
+    reader.onerror = () => setDataStatus('Could not read that file', 'err');
+    reader.readAsText(file);
+  }
+
+  function applyBackup(data){
+    localStorage.clear();
+    Object.keys(data).forEach(k => localStorage.setItem(k, data[k]));
+    setDataStatus('Imported — reloading…', 'ok');
+    setTimeout(() => location.reload(), 700);
+  }
+
   // ── PUSH NOTIFICATIONS ──
   // The app subscribes and parks the subscription in the same gist. A scheduled
   // GitHub Action reads it and does the actual sending.

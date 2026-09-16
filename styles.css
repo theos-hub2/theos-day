@@ -896,7 +896,7 @@
   color: var(--green);
   margin-bottom: 6px;
 }
-.sync-block input {
+.sync-block input, .sync-block select {
   width: 100%;
   padding: 10px 12px;
   border: 2px solid var(--green);
