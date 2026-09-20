@@ -1708,6 +1708,25 @@
 }
 .gym-set-actions { display: flex; gap: 8px; margin-top: 4px; }
 
+/* A split set is still one set — the rule down the left says so, and the two
+   lines sit tighter to each other than they do to the next set. */
+.gym-set-split {
+  margin-bottom: 12px;
+  padding-left: 6px;
+  border-left: 2px solid var(--border);
+}
+.gym-set-split .gym-set-row { margin-bottom: 4px; }
+.gym-set-split .gym-set-row-b { margin-bottom: 0; }
+.gym-side {
+  width: 13px;
+  flex-shrink: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--muted);
+  text-align: center;
+}
+.gym-set-row-b .gym-side { color: var(--green); }
+
 .gym-finish {
   width: 100%;
   margin-top: 22px;

@@ -466,6 +466,66 @@
     renderGym();
   }
 
+  // ── LEFT / RIGHT SIDES ──
+  // Some dumbbell work is lopsided. A split set is still one set — it just
+  // carries its own weight and reps for each arm, so the weaker side is visible
+  // instead of being averaged away. Stored per exercise *and* variant: the DB
+  // preacher curl can be split while the EZ-bar version stays one weight.
+
+  function loadSplits(){
+    try { return JSON.parse(localStorage.getItem('theosSplitSides')) || {}; }
+    catch(e){ return {}; }
+  }
+  function saveSplits(o){ localStorage.setItem('theosSplitSides', JSON.stringify(o)); }
+
+  function hasSide(s){
+    return (s.w2 !== '' && s.w2 != null) || (s.r2 !== '' && s.r2 != null);
+  }
+  // A set logged before the split existed is not missing its right arm — one
+  // figure for a set has always meant both arms did that. So the right side
+  // reads through to the left wherever it holds nothing of its own, and no
+  // older session ever needs rewriting to show two arms.
+  function sideR(s){
+    return {
+      w: (s.w2 === '' || s.w2 == null) ? s.w : s.w2,
+      r: (s.r2 === '' || s.r2 == null) ? s.r : s.r2
+    };
+  }
+  // a set counts as logged if either side has reps in it
+  function hasRep(s){
+    return (s.r !== '' && s.r != null) || (s.r2 !== '' && s.r2 != null);
+  }
+
+  function splitEnabled(ex, variant){
+    if (!ex) return false;
+    const key = exKey(ex, variant);
+    if (loadSplits()[key]) return true;
+    const sess = currentSession();
+    if (sess && sess.split && sess.split[key]) return true;
+    // already logged with two sides? then it's split whether the flag survived or not
+    return ((sess && sess.exercises[key]) || []).some(hasSide);
+  }
+
+  function toggleSplit(base, variant){
+    const ex = sessionPlan().find(e => slug(e.name) === base);
+    if (!ex) return;
+    const key = exKey(ex, variant);
+    const on = splitEnabled(ex, variant);
+    // remembered so the next session starts the same way — it never reaches back
+    // into sessions already logged, which keep whatever shape they were saved in
+    const prefs = loadSplits();
+    if (on) delete prefs[key]; else prefs[key] = true;
+    saveSplits(prefs);
+    writeSession(s => {
+      if (!s.split) s.split = {};
+      if (on) delete s.split[key]; else s.split[key] = true;
+      // switching on stores nothing — every set already reads as both arms.
+      // Switching off is the only direction that touches data.
+      if (on) (s.exercises[key] || []).forEach(x => { delete x.w2; delete x.r2; });
+    });
+    renderGym();
+  }
+
   // every set across every variant, in the order they were entered
   function mergedSets(ex){
     const sess = currentSession();
@@ -515,7 +575,9 @@
     const last = all.length ? all[all.length - 1] : null;
     writeSession(s => {
       if (!s.exercises[key]) s.exercises[key] = [];
-      s.exercises[key].push({ w: last ? last.w : '', r: '', o: ord });
+      const row = { w: last ? last.w : '', r: '', o: ord };
+      if (last && hasSide(last)) { row.w2 = last.w2; row.r2 = ''; }
+      s.exercises[key].push(row);
     });
     renderGym();
   }
@@ -583,13 +645,14 @@
   }
 
   // adds the bar's weight to whatever is already in the box
-  function addBar(key, idx, base, kind){
+  function addBar(key, idx, base, kind, field){
     if (!kind) return;
+    const f = field || 'w';
     const add = loadBars()[kind] || 0;
     writeSession(s => {
       if (!s.exercises[key] || !s.exercises[key][idx]) return;
-      const cur = Number(s.exercises[key][idx].w) || 0;
-      s.exercises[key][idx].w = Math.round((cur + add) * 100) / 100;
+      const cur = Number(s.exercises[key][idx][f]) || 0;
+      s.exercises[key][idx][f] = Math.round((cur + add) * 100) / 100;
     });
     renderGym();
   }
@@ -688,16 +751,24 @@
 
   function setsSummary(sets, mode){
     const mark = s => s.f ? 'f' : '';
-    if (mode === 'time') {
-      return sets.filter(s => s.r).map(s => (s.w ? s.w + 'kg ' + fmtDur(s.r) : fmtDur(s.r)) + mark(s)).join(', ');
-    }
-    return sets.filter(s => s.r).map(s => (s.w ? s.w + '×' + s.r : String(s.r)) + mark(s)).join(', ');
+    const one = (w, r) => {
+      if (r === '' || r == null) return '';
+      if (mode === 'time') return w ? w + 'kg ' + fmtDur(r) : fmtDur(r);
+      return w ? w + '×' + r : String(r);
+    };
+    return sets.filter(hasRep).map(s => {
+      const R = sideR(s);
+      const a = one(s.w, s.r), b = one(R.w, R.r);
+      // identical arms read as one figure — the slash is what's worth seeing
+      const both = (!a || !b) ? (a || b) : (a === b ? a : a + '/' + b);
+      return both + mark(s);
+    }).filter(Boolean).join(', ');
   }
 
   function sessionLogged(dateKey){
     const s = loadGymLog()[dateKey];
     if (!s || !s.exercises) return false;
-    return Object.values(s.exercises).some(sets => sets.some(x => x.r));
+    return Object.values(s.exercises).some(sets => sets.some(hasRep));
   }
 
   function lastEntry(key){
@@ -705,7 +776,7 @@
     const keys = Object.keys(log).filter(k => k < gymState.date).sort().reverse();
     for (const k of keys) {
       const sets = log[k].exercises && log[k].exercises[key];
-      if (sets && sets.length && sets.some(s => s.r)) return { date:k, sets };
+      if (sets && sets.length && sets.some(hasRep)) return { date:k, sets };
     }
     return null;
   }
@@ -840,7 +911,7 @@
     const list = sessionPlan();
     const doneCount = list.filter(e => {
       const s = sess && sess.exercises[exKey(e)];
-      return s && s.some(x => x.r);
+      return s && s.some(hasRep);
     }).length;
     const pct = list.length ? Math.round((doneCount/list.length)*100) : 0;
     const color = getProgressColor(pct);
@@ -860,7 +931,7 @@
       const key = exKey(ex, variant);
       const sets = mixed ? mergedSets(ex) : ((sess && sess.exercises[key]) || []);
       const open = !!gymState.expanded[key];
-      const logged = sets.some(s => s.r);
+      const logged = sets.some(hasRep);
       const prev = lastEntry(key);
       const label = mixed ? pretty(ex.name) : displayName(ex, variant);
       const mode = exMode(ex);
@@ -914,24 +985,67 @@
         sets.forEach((s, i) => {
           const sKey = mixed ? s.key : key;
           const sIdx = mixed ? s.idx : i;
-          h += `<div class="gym-set-row">
-                  <span class="gym-set-n">${i+1}</span>
-                  <input type="number" inputmode="decimal" placeholder="kg" value="${s.w ?? ''}"
-                         onchange="setVal('${sKey}',${sIdx},'w',this.value)"/>
-                  ${barKind ? `<button class="bar-add" onclick="addBar('${sKey}',${sIdx},'${base}','${barKind}')" title="Add bar weight">+${bars[barKind]}</button>` : ''}
-                  <span class="gym-x">${mode === 'time' ? 'for' : '×'}</span>
-                  <input type="number" inputmode="numeric" placeholder="${mode === 'time' ? 'sec' : 'reps'}"
-                         value="${s.r ?? ''}" onchange="setVal('${sKey}',${sIdx},'r',this.value)"/>
-                  ${mode === 'time' ? `<span class="gym-dur">${s.r ? fmtDur(s.r) : ''}</span>` : ''}
-                  ${mixed ? `<select class="gym-set-var" onchange="setSetVariant('${base}','${s.key}',${s.idx},this.value)">
+          const sVar = mixed ? s.variant : variant;
+          const times = mode === 'time' ? 'for' : '×';
+          const unit  = mode === 'time' ? 'sec' : 'reps';
+
+          const barBtn = f => barKind
+            ? `<button class="bar-add" onclick="addBar('${sKey}',${sIdx},'${base}','${barKind}','${f}')" title="Add bar weight">+${bars[barKind]}</button>`
+            : '';
+          const varSel = mixed
+            ? `<select class="gym-set-var" onchange="setSetVariant('${base}','${s.key}',${s.idx},this.value)">
                       ${variantsFor(ex).map(v => `<option value="${v}"${v === s.variant ? ' selected' : ''}>${escHtml(pretty(v))}</option>`).join('')}
-                    </select>` : ''}
-                  <button class="mini flag${s.f ? ' on' : ''}" onclick="toggleFailure('${sKey}',${sIdx})"
+                    </select>`
+            : '';
+          const marks = `<button class="mini flag${s.f ? ' on' : ''}" onclick="toggleFailure('${sKey}',${sIdx})"
                           title="To failure">f</button>
                   <button class="mini dot form-${s.form || 'none'}" onclick="cycleForm('${sKey}',${sIdx})"
                           title="Form"></button>
-                  <button class="gym-set-del" onclick="removeSet('${sKey}',${sIdx})">✕</button>
+                  <button class="gym-set-del" onclick="removeSet('${sKey}',${sIdx})">✕</button>`;
+
+          // one side per line — four inputs will not sit on a 402pt row
+          const R = sideR(s);
+          if (splitEnabled(ex, sVar)) {
+            h += `<div class="gym-set-split">
+                  <div class="gym-set-row">
+                    <span class="gym-set-n">${i+1}</span>
+                    <span class="gym-side">L</span>
+                    <input type="number" inputmode="decimal" placeholder="kg" value="${s.w ?? ''}"
+                           onchange="setVal('${sKey}',${sIdx},'w',this.value)"/>
+                    ${barBtn('w')}
+                    <span class="gym-x">${times}</span>
+                    <input type="number" inputmode="numeric" placeholder="${unit}"
+                           value="${s.r ?? ''}" onchange="setVal('${sKey}',${sIdx},'r',this.value)"/>
+                    ${mode === 'time' ? `<span class="gym-dur">${s.r ? fmtDur(s.r) : ''}</span>` : ''}
+                    ${marks}
+                  </div>
+                  <div class="gym-set-row gym-set-row-b">
+                    <span class="gym-set-n"></span>
+                    <span class="gym-side">R</span>
+                    <input type="number" inputmode="decimal" placeholder="kg" value="${R.w ?? ''}"
+                           onchange="setVal('${sKey}',${sIdx},'w2',this.value)"/>
+                    ${barBtn('w2')}
+                    <span class="gym-x">${times}</span>
+                    <input type="number" inputmode="numeric" placeholder="${unit}"
+                           value="${R.r ?? ''}" onchange="setVal('${sKey}',${sIdx},'r2',this.value)"/>
+                    ${mode === 'time' ? `<span class="gym-dur">${R.r ? fmtDur(R.r) : ''}</span>` : ''}
+                    ${varSel}
+                  </div>
                 </div>`;
+          } else {
+            h += `<div class="gym-set-row">
+                  <span class="gym-set-n">${i+1}</span>
+                  <input type="number" inputmode="decimal" placeholder="kg" value="${s.w ?? ''}"
+                         onchange="setVal('${sKey}',${sIdx},'w',this.value)"/>
+                  ${barBtn('w')}
+                  <span class="gym-x">${times}</span>
+                  <input type="number" inputmode="numeric" placeholder="${unit}"
+                         value="${s.r ?? ''}" onchange="setVal('${sKey}',${sIdx},'r',this.value)"/>
+                  ${mode === 'time' ? `<span class="gym-dur">${s.r ? fmtDur(s.r) : ''}</span>` : ''}
+                  ${varSel}
+                  ${marks}
+                </div>`;
+          }
         });
         const moreOpen = !!gymState.moreOpen[key];
         h += `<div class="gym-set-actions">
@@ -957,6 +1071,13 @@
           if (variantsFor(ex)) {
             h += `<button class="gym-mix-toggle" onclick="toggleMix('${base}')">${
               mixed ? 'Use one variant for all sets' : 'Mix variants across sets'}</button>`;
+            // rarer still than mixing, so it only surfaces once you're already in here
+            if (mixed) {
+              const isSplit = splitEnabled(ex, variant);
+              h += `<button class="gym-mix-toggle" onclick="toggleSplit('${base}','${String(variant || '').replace(/'/g,"\\'")}')">${
+                isSplit ? 'One weight for both arms' : 'Split left and right'}${
+                variant ? ' — ' + escHtml(pretty(variant)) : ''}</button>`;
+            }
           }
           h += '</div>';
         }
@@ -1105,10 +1226,17 @@
       if (!existing || !existing.length) {
         const prev = lastEntry(key);
         const ex = sessionPlan().find(e => exKey(e) === key || slug(e.name) === key);
+        const split = !!loadSplits()[key];
+        const blank = () => split ? { w:'', r:'', w2:'', r2:'' } : { w:'', r:'' };
         const seed = prev
-          ? prev.sets.filter(s => s.r).map(s => ({ w:s.w, r:'' }))
-          : Array.from({length: ex ? ex.sets : 3}, () => ({ w:'', r:'' }));
-        writeSession(s => { s.exercises[key] = seed; });
+          ? prev.sets.filter(hasRep).map(s => (split && hasSide(s))
+              ? { w:s.w, r:'', w2:s.w2, r2:'' }
+              : { w:s.w, r:'' })
+          : Array.from({length: ex ? ex.sets : 3}, blank);
+        writeSession(s => {
+          s.exercises[key] = seed;
+          if (split) { if (!s.split) s.split = {}; s.split[key] = true; }
+        });
       }
     }
     renderGym();
@@ -1118,7 +1246,16 @@
     writeSession(s => {
       if (!s.exercises[key]) s.exercises[key] = [];
       if (!s.exercises[key][i]) s.exercises[key][i] = { w:'', r:'' };
-      s.exercises[key][i][field] = value === '' ? '' : Number(value);
+      const row = s.exercises[key][i];
+      // On a split set the right arm is only inherited until one of the two is
+      // changed. Pin it to the figure it was already showing first, so the row
+      // on screen and the set in storage never disagree.
+      if (loadSplits()[key] || (s.split && s.split[key])) {
+        const R = sideR(row);
+        if ((field === 'w' || field === 'w2') && (row.w2 === '' || row.w2 == null)) row.w2 = R.w;
+        if ((field === 'r' || field === 'r2') && (row.r2 === '' || row.r2 == null)) row.r2 = R.r;
+      }
+      row[field] = value === '' ? '' : Number(value);
     });
     updateGymCounter();
   }
@@ -1127,7 +1264,9 @@
     writeSession(s => {
       if (!s.exercises[key]) s.exercises[key] = [];
       const last = s.exercises[key][s.exercises[key].length-1];
-      s.exercises[key].push({ w: last ? last.w : '', r:'' });
+      const row = { w: last ? last.w : '', r:'' };
+      if (last && hasSide(last)) { row.w2 = last.w2; row.r2 = ''; }
+      s.exercises[key].push(row);
     });
     renderGym();
   }
@@ -1142,7 +1281,7 @@
     const list = sessionPlan();
     const done = list.filter(e => {
       const s = sess && sess.exercises[exKey(e)];
-      return s && s.some(x => x.r);
+      return s && s.some(hasRep);
     }).length;
     const pct = list.length ? Math.round((done/list.length)*100) : 0;
     const color = getProgressColor(pct);
@@ -1155,7 +1294,7 @@
   function finishSession(){
     writeSession(s => {
       Object.keys(s.exercises).forEach(k => {
-        s.exercises[k] = s.exercises[k].filter(x => x.r !== '' && x.r != null);
+        s.exercises[k] = s.exercises[k].filter(hasRep);
         if (!s.exercises[k].length) delete s.exercises[k];
       });
       s.done = true;
@@ -1417,12 +1556,21 @@
     return Object.keys(log).sort().map(date => {
       const sets = log[date].exercises && log[date].exercises[key];
       if (!sets) return null;
-      const valid = sets.filter(s => s.r);
+      const valid = sets.filter(hasRep);
       if (!valid.length) return null;
-      const volume = valid.reduce((a,s) => a + (Number(s.w)||0) * (Number(s.r)||0), 0);
-      const top = Math.max(...valid.map(s => Number(s.w)||0));
-      const totalTime = valid.reduce((a,s) => a + (Number(s.r)||0), 0);
-      const longest = Math.max(...valid.map(s => Number(s.r)||0));
+      // Both arms are read the same way whether or not the set was split: an
+      // unsplit set simply has two identical sides, so averaging gives back the
+      // original figure and the line stays continuous across the change. The top
+      // is the *weaker* arm, because that's the one actually capping the lift.
+      const vol = s => { const R = sideR(s);
+        return ((Number(s.w)||0) * (Number(s.r)||0) + (Number(R.w)||0) * (Number(R.r)||0)) / 2; };
+      const heavy = s => Math.min(Number(s.w)||0, Number(sideR(s).w)||0);
+      const secs = s => { const R = sideR(s);
+        return ((Number(s.r)||0) + (Number(R.r)||0)) / 2; };
+      const volume = valid.reduce((a,s) => a + vol(s), 0);
+      const top = Math.max(...valid.map(heavy));
+      const totalTime = valid.reduce((a,s) => a + secs(s), 0);
+      const longest = Math.max(...valid.map(secs));
       return { date, sets: valid, volume, top, totalTime, longest };
     }).filter(Boolean);
   }
