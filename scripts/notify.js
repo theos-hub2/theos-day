@@ -148,6 +148,15 @@ async function saveState(state) {
 
   let rawSnap = null;
   try { rawSnap = await getJSON('theos-day.json'); } catch { /* falls back to zeros */ }
+  // An asterisked day (sick, travelling) gets no reminders. Mark them handled
+  // so catch-up doesn't fire them later in the day.
+  if (!FORCE_SLOT && rawSnap && Array.isArray(rawSnap.asterisks) && rawSnap.asterisks.includes(now.date)) {
+    for (const item of due) state.lastSent[item.time] = now.date;
+    console.log(`Asterisked day (${now.date}) — skipping ${due.length} notification(s).`);
+    await saveState(state);
+    return;
+  }
+
   const snap = todaySnapshot(rawSnap, now.date);
   if (snap.stale) console.log('Snapshot is not from today — treating as no tasks set.');
 
