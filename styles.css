@@ -2680,3 +2680,50 @@
 .tally-bar { flex: 1; height: 8px; background: var(--off-white); border-radius: 4px; overflow: hidden; }
 .tally-bar i { display: block; height: 100%; background: var(--green-light); border-radius: 4px; }
 .tally-n { flex: 0 0 22px; text-align: right; font-size: 0.78rem; font-weight: 700; color: var(--muted); }
+
+/* ── ASTERISK ── a day that didn't count (sick, travel, emergency) */
+.cal-day.asterisk { background: rgba(192,80,64,0.10); border-color: rgba(192,80,64,0.22); }
+.cal-day.asterisk.in-week { background: rgba(192,80,64,0.13); }
+.cal-day.asterisk.today { border-color: var(--green); }
+.cal-day.selected.asterisk { background: var(--green); border-color: var(--green); }
+.cal-asterisk {
+  position: absolute; top: 3px; right: 4px;
+  font-size: 0.55rem; line-height: 1; color: #b5503f; font-weight: 700;
+}
+.cal-day.selected .cal-asterisk { color: var(--white); }
+
+.asterisk-banner {
+  display: flex; gap: 10px; align-items: flex-start;
+  background: rgba(192,80,64,0.10); border-left: 3px solid rgba(192,80,64,0.45);
+  padding: 10px 12px; margin: -4px 0 16px;
+}
+.asterisk-mark { color: #b5503f; font-weight: 700; font-size: 0.9rem; line-height: 1.3; }
+.asterisk-reason { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #9c4436; }
+.asterisk-note { font-size: 0.9rem; color: var(--ink-mid); margin-top: 2px; }
+
+.asterisk-link {
+  display: block; margin: 18px auto 0; background: none; border: none;
+  font: inherit; font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--muted); padding: 8px 12px; cursor: pointer;
+}
+.asterisk-editor { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border); }
+.asterisk-editor-label { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #9c4436; margin-bottom: 10px; }
+.asterisk-reasons { display: flex; gap: 8px; margin-bottom: 10px; }
+.asterisk-chip {
+  flex: 1; padding: 9px 4px; font: inherit; font-size: 0.85rem;
+  background: var(--white); border: 1.5px solid var(--border); color: var(--ink-mid); border-radius: 2px;
+}
+.asterisk-chip.active { background: rgba(192,80,64,0.12); border-color: rgba(192,80,64,0.55); color: #9c4436; font-weight: 600; }
+.asterisk-input {
+  width: 100%; box-sizing: border-box; padding: 10px 12px; font: inherit; font-size: 16px;
+  background: var(--white); border: 1.5px solid var(--border); color: var(--ink); border-radius: 2px;
+}
+.asterisk-hint { font-size: 0.75rem; color: var(--muted); margin: 8px 0 12px; line-height: 1.4; }
+.asterisk-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.asterisk-actions button { font: inherit; font-size: 0.85rem; padding: 8px 14px; border-radius: 2px; cursor: pointer; }
+.asterisk-cancel { background: none; border: 1.5px solid var(--border); color: var(--ink-mid); }
+.asterisk-save { background: var(--green); border: 1.5px solid var(--green); color: var(--white); }
+.asterisk-save:disabled { opacity: 0.4; }
+.asterisk-remove { background: none; border: none; color: #b5503f; margin-right: auto; padding-left: 0 !important; }
+
+.today-asterisk { display: none; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #b5503f; margin-top: 5px; }

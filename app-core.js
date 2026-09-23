@@ -451,6 +451,7 @@
   }
 
   function renderToday(){
+    renderTodayAsterisk();
     const day=getDay(todayKey);
     const list=document.getElementById('taskList');
     list.innerHTML='';
@@ -796,6 +797,10 @@
       if(data[key]&&data[key].tasks.length>0)el.classList.add('has-tasks');
 const dayData = data[key];
 let content = `<div class="cal-day-number">${d}</div>`;
+if (dayData && dayData.asterisk) {
+  el.classList.add('asterisk');
+  content += `<span class="cal-asterisk">✱</span>`;
+}
 
 if (dayData && dayData.tasks && dayData.tasks.length > 0) {
   const total = dayData.tasks.length;
@@ -918,6 +923,105 @@ el.innerHTML = content;
         }
       });
     }
+    renderAsterisk(key);
+  }
+
+  // ── ASTERISK ──
+  // A day that didn't count — sick, travelling, an emergency. It shades the
+  // calendar and explains the gap. It deliberately does NOT protect streaks:
+  // the break stays, the asterisk is context. Stored on the day itself
+  // (theosDayData[key].asterisk = {reason, note}) so export and sync carry it.
+  // Used a few times a year, so it lives at the bottom of the day view only.
+  const ASTERISK_REASONS = [['sick','Sick'],['travel','Travel'],['emergency','Emergency']];
+  let asteriskEditing = null;   // key of the day whose editor is open
+  let asteriskDraft = null;
+
+  function asteriskOf(key){ const d = loadData()[key]; return (d && d.asterisk) || null; }
+  function asteriskLabel(a){ const r = ASTERISK_REASONS.find(x => x[0] === a.reason); return r ? r[1] : 'Asterisk'; }
+
+  function renderAsterisk(key){
+    const banner = document.getElementById('dayAsteriskBanner');
+    const ctl = document.getElementById('dayAsteriskCtl');
+    if (!banner || !ctl) return;
+    const a = asteriskOf(key);
+    if (asteriskEditing === key) {
+      banner.innerHTML = '';
+      ctl.innerHTML = asteriskEditorHtml(key);
+      return;
+    }
+    banner.innerHTML = a ? `<div class="asterisk-banner">
+        <span class="asterisk-mark">✱</span>
+        <div><div class="asterisk-reason">${asteriskLabel(a)}</div>
+        ${a.note ? `<div class="asterisk-note">${escHtml(a.note)}</div>` : ''}</div>
+      </div>` : '';
+    ctl.innerHTML = `<button class="asterisk-link" onclick="openAsteriskEditor('${key}')">${a ? 'Edit asterisk' : 'Mark with an asterisk'}</button>`;
+  }
+
+  function asteriskEditorHtml(key){
+    const d = asteriskDraft, existing = asteriskOf(key);
+    return `<div class="asterisk-editor">
+      <div class="asterisk-editor-label">✱ Asterisk this day</div>
+      <div class="asterisk-reasons">${ASTERISK_REASONS.map(([v,l]) =>
+        `<button class="asterisk-chip${d.reason === v ? ' active' : ''}" onclick="pickAsteriskReason('${v}')">${l}</button>`).join('')}</div>
+      <input type="text" id="asteriskNote" class="asterisk-input" maxlength="120"
+        placeholder="Note (optional) — e.g. flight to LA"
+        value="${escHtml(d.note || '')}" oninput="asteriskDraft.note = this.value"/>
+      <div class="asterisk-hint">Shades the day on the calendar and keeps notifications quiet. Streaks aren't changed.</div>
+      <div class="asterisk-actions">
+        ${existing ? `<button class="asterisk-remove" onclick="removeAsterisk('${key}')">Remove</button>` : ''}
+        <button class="asterisk-cancel" onclick="closeAsteriskEditor()">Cancel</button>
+        <button class="asterisk-save" ${d.reason ? '' : 'disabled'} onclick="saveAsterisk('${key}')">Save</button>
+      </div>
+    </div>`;
+  }
+
+  function openAsteriskEditor(key){
+    const a = asteriskOf(key);
+    asteriskEditing = key;
+    asteriskDraft = { reason: a ? a.reason : null, note: a ? (a.note || '') : '' };
+    renderAsterisk(key);
+  }
+
+  function pickAsteriskReason(reason){
+    if (!asteriskEditing) return;
+    const inp = document.getElementById('asteriskNote');
+    if (inp) asteriskDraft.note = inp.value;
+    asteriskDraft.reason = reason;
+    renderAsterisk(asteriskEditing);
+  }
+
+  function closeAsteriskEditor(){
+    const key = asteriskEditing;
+    asteriskEditing = null; asteriskDraft = null;
+    if (key) renderAsterisk(key);
+  }
+
+  function writeAsterisk(key, value){
+    const data = loadData();
+    if (!data[key]) data[key] = { tasks: [] };
+    if (value) data[key].asterisk = value; else delete data[key].asterisk;
+    saveData(data);
+    asteriskEditing = null; asteriskDraft = null;
+    renderCalendar();
+    renderAsterisk(key);
+    if (key === todayKey) renderToday();
+  }
+
+  function saveAsterisk(key){
+    if (!asteriskDraft || !asteriskDraft.reason) return;
+    const inp = document.getElementById('asteriskNote');
+    const note = (inp ? inp.value : asteriskDraft.note || '').trim();
+    writeAsterisk(key, { reason: asteriskDraft.reason, note });
+  }
+
+  function removeAsterisk(key){ writeAsterisk(key, null); }
+
+  function renderTodayAsterisk(){
+    const el = document.getElementById('todayAsterisk');
+    if (!el) return;
+    const a = asteriskOf(todayKey);
+    el.innerHTML = a ? `✱ ${asteriskLabel(a)}${a.note ? ' — ' + escHtml(a.note) : ''}` : '';
+    el.style.display = a ? 'block' : 'none';
   }
 
  function addCalTask(){

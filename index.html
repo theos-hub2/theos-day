@@ -47,6 +47,7 @@
       <div class="today-header">
         <div class="today-wordmark">theo's day</div>
         <div class="today-date" id="dateFull"></div>
+        <div class="today-asterisk" id="todayAsterisk"></div>
       </div>
 
       <div class="progress-block">
@@ -159,6 +160,7 @@
     <!-- SHARED DAY VIEW — moved into whichever slot is active -->
     <div class="day-view" id="dayView" style="display:none">
       <div class="day-view-title" id="dayViewTitle"></div>
+      <div id="dayAsteriskBanner"></div>
       <div class="add-row" id="calAddRow">
         <div class="add-row-top">
           <input type="text" id="calTaskInput" placeholder="Task title…"/>
@@ -168,6 +170,7 @@
         <textarea id="calTaskDetail" placeholder="Optional: add details here…" rows="1"></textarea>
       </div>
       <div class="task-list" id="calTaskList"></div>
+      <div id="dayAsteriskCtl"></div>
     </div>
 
     <!-- GYM -->

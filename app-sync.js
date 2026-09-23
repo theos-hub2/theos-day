@@ -43,6 +43,9 @@
       done: done,
       total: total,
       tasks: tasks.map(t => ({ text: t.text, done: !!t.done })),
+      // asterisked days from today on — the notifier stays quiet on these,
+      // including travel days marked in advance
+      asterisks: Object.keys(data).filter(k => k >= key && data[k] && data[k].asterisk).sort(),
       streaks: streaks,
       resolutions: {
         done: res.filter(r => r.done).length,
