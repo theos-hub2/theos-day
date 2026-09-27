@@ -2745,9 +2745,9 @@
 .hist-ex-main { flex: 1; min-width: 0; }
 .hist-ex-name { font-size: 1rem; font-weight: 600; color: var(--ink); }
 .hist-ex-dots { display: flex; gap: 3px; flex-shrink: 0; }
-.form-toggles { display: flex; gap: 8px; margin-top: 14px; }
+.form-toggles { display: flex; gap: 6px; }
 .form-toggle {
-  width: 44px; height: 32px; border-radius: 16px; cursor: pointer;
+  width: 40px; height: 32px; border-radius: 16px; cursor: pointer;
   border: 1.5px solid var(--border); background: transparent;
   display: flex; align-items: center; justify-content: center;
 }
@@ -2758,3 +2758,58 @@
 .form-toggle.form-ok i   { background: #e0a800; }
 .form-toggle.form-poor i { background: #c0392b; }
 .form-toggle.form-none i { background: transparent; border: 1.5px solid #9a9a94; width: 11px; height: 11px; }
+
+/* ── gym charts: toolbar, stats, scrubbing ── */
+.chart-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+.range-chips { display: flex; margin-left: auto; border: 1.5px solid var(--border); border-radius: 16px; overflow: hidden; }
+.range-chip {
+  padding: 6px 11px; border: none; background: transparent; cursor: pointer;
+  font-family: 'EB Garamond', serif; font-size: 0.74rem; color: var(--muted);
+}
+.range-chip.on { background: var(--green); color: var(--white); }
+
+.stat-pair { display: flex; gap: 8px; margin-top: 14px; }
+.stat-card {
+  flex: 1; border: 1.5px solid var(--border); border-radius: 6px;
+  padding: 10px 12px; background: var(--off-white);
+}
+.stat-wide { margin-top: 14px; }
+.stat-label { font-size: 0.66rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.stat-value { font-size: 1.35rem; font-weight: 600; color: var(--ink); margin-top: 2px; line-height: 1.2; }
+.stat-sub { font-size: 0.78rem; color: var(--muted); }
+.chart-star-inline { color: var(--green); }
+.chart-star { fill: var(--green); font-size: 13px; text-anchor: middle; }
+
+.chart-vgrid { stroke-dasharray: 2 3; }
+.gchart-plot {
+  position: relative;
+  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+}
+.chart-cursor { stroke: var(--ink-mid); stroke-width: 1.2; stroke-dasharray: 3 3; }
+.gtip {
+  position: absolute; top: 4px; left: 0; z-index: 2;
+  background: var(--ink); color: var(--white); border-radius: 6px;
+  padding: 6px 10px; font-size: 0.8rem; line-height: 1.35;
+  white-space: nowrap; pointer-events: auto;
+  opacity: 0; visibility: hidden; transition: opacity 0.12s;
+  transform: translateY(-100%);
+}
+.gtip.show { opacity: 1; visibility: visible; }
+.tip-date { font-size: 0.7rem; opacity: 0.75; }
+.tip-line { display: flex; align-items: center; gap: 8px; }
+.tip-line b { font-weight: 600; }
+.tip-form { display: inline-flex; align-items: center; gap: 4px; font-size: 0.74rem; opacity: 0.9; }
+.tip-form.muted { opacity: 0.6; }
+.tip-key { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+
+.hist-area-head {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  margin-top: 16px; padding: 10px 2px; background: transparent; border: none;
+  border-bottom: 1.5px solid var(--border); cursor: pointer; text-align: left;
+  font-family: inherit; font-size: 0.72rem; font-weight: 600;
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--green);
+}
+.hist-area-count { color: var(--muted); font-weight: 400; }
+.hist-area-chev { margin-left: auto; font-size: 1.1rem; color: var(--muted); transition: transform 0.15s; }
+.hist-area-chev.open { transform: rotate(90deg); }
+.hist-trend { flex-shrink: 0; }

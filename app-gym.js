@@ -1428,6 +1428,227 @@
     return svg;
   }
 
+  // ── GYM CHART ──
+  // The gym's own chart; reading and drawing keep lineChart above.
+  // Points sit at their real date, so a two-week break shows as a gap.
+  // Gridlines land on round numbers. Tap a point, or press and hold and slide,
+  // to see what happened that day.
+
+  const CHARTS = {};
+  let chartSeq = 0;
+  const DAY_MS = 86400000;
+  const dayNum = k => Math.round(Date.parse(k + 'T00:00:00Z') / DAY_MS);
+  const dayKey = n => new Date(n * DAY_MS).toISOString().slice(0, 10);
+  const MON3 = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  const KG_STEPS  = [1.25, 2.5, 5, 10, 20, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 25000, 50000];
+  const BW_STEPS  = [0.5, 1, 2, 5, 10, 20];
+  const SEC_STEPS = [5, 10, 15, 30, 60, 120, 300, 600, 1200, 1800, 3600, 7200];
+
+  // round gridlines with a little room above and below the data
+  function niceAxis(vals, steps){
+    const min = Math.min(...vals), max = Math.max(...vals);
+    let out = null;
+    for (const s of steps) {
+      let lo = Math.floor(min / s + 1e-9) * s, hi = Math.ceil(max / s - 1e-9) * s;
+      if (min - lo < s * 0.25) lo -= s;
+      if (hi - max < s * 0.25) hi += s;
+      if (min >= 0 && lo < 0) lo = 0;
+      out = { lo, hi, step: s };
+      if ((hi - lo) / s <= 5 + 1e-9) return out;
+    }
+    return out;
+  }
+
+  // the date range a chart covers: the chosen window, or from the first point, up to today
+  function rangeStart(){
+    const r = gymState.range || 'all';
+    if (r === 'all') return null;
+    const today = dayNum(ymd(new Date()));
+    return dayKey(today - (r === '1m' ? 30 : 91));
+  }
+  function inRange(dateKey){ const s = rangeStart(); return !s || dateKey >= s; }
+  function setRange(r){ gymState.range = r; renderGym(); }
+  function rangeChipsHTML(){
+    const r = gymState.range || 'all';
+    return '<div class="range-chips">' + [['1m','1M'],['3m','3M'],['all','All']].map(([v,l]) =>
+      `<button class="range-chip${r === v ? ' on' : ''}" onclick="setRange('${v}')">${l}</button>`).join('') + '</div>';
+  }
+
+  // series: [{ color, points: [{ date, v, color? }] }]
+  // tip(date) returns the html shown when that day is picked
+  function gymChart(o){
+    const W = 340, H = 196, L = 40, R = 14, T = 14, B = 28;
+    const plotW = W - L - R, plotH = H - T - B;
+    const pts = o.series.flatMap(s => s.points);
+    if (!pts.length) return '<div class="gym-nochart">No data yet</div>';
+
+    const ax = niceAxis(pts.map(p => p.v), o.steps || KG_STEPS);
+    const y = v => T + plotH - ((v - ax.lo) / (ax.hi - ax.lo)) * plotH;
+
+    const today = dayNum(ymd(new Date()));
+    let d0 = rangeStart() ? dayNum(rangeStart()) : Math.min(...pts.map(p => dayNum(p.date)));
+    let d1 = Math.max(today, ...pts.map(p => dayNum(p.date)));
+    if (d1 - d0 < 6) { d0 -= 3; d1 += 3; }
+    const inset = 8;
+    const x = k => L + inset + ((dayNum(k) - d0) / (d1 - d0)) * (plotW - inset * 2);
+
+    const fmt = o.fmt || fmtNum;
+    let svg = `<svg viewBox="0 0 ${W} ${H}" class="chart-svg gchart-svg" role="img">`;
+
+    // x ticks: every few days, weekly, monthly or quarterly, depending on the span
+    const span = d1 - d0, ticks = [];
+    if (span <= 50) {
+      const every = span <= 14 ? 3 : 7;
+      let n = d0;
+      if (every === 7) while (new Date(n * DAY_MS).getUTCDay() !== 0) n++;
+      for (; n <= d1; n += every) ticks.push({ n, lab: MON3[new Date(n * DAY_MS).getUTCMonth()] + ' ' + new Date(n * DAY_MS).getUTCDate() });
+    } else {
+      const s = new Date(d0 * DAY_MS);
+      let yy = s.getUTCFullYear(), mm = s.getUTCMonth() + 1;
+      const quarterly = span > 400, months = [];
+      for (;;) {
+        if (mm > 11) { mm -= 12; yy++; }
+        const n = Math.round(Date.UTC(yy, mm, 1) / DAY_MS);
+        if (n > d1) break;
+        if (!quarterly || mm % 3 === 0)
+          months.push({ n, lab: MON3[mm] + (quarterly || mm === 0 ? " '" + String(yy).slice(2) : '') });
+        mm++;
+      }
+      const every = months.length > 6 ? 2 : 1;
+      months.forEach((t, i) => { if (i % every === 0) ticks.push(t); });
+      // name the month the chart opens in, without a boundary line
+      if (!quarterly && (!ticks.length || ticks[0].n - d0 > 12))
+        ticks.unshift({ n: d0, lab: MON3[s.getUTCMonth()], noLine: true });
+    }
+    const xOfN = n => L + inset + ((n - d0) / (d1 - d0)) * (plotW - inset * 2);
+
+    for (let v = ax.lo; v <= ax.hi + 1e-9; v += ax.step) {
+      const yy = y(v).toFixed(1);
+      svg += `<line x1="${L}" y1="${yy}" x2="${W - R}" y2="${yy}" class="chart-grid"/>`;
+      svg += `<text x="${L - 6}" y="${(Number(yy) + 3.5).toFixed(1)}" class="chart-ytick">${fmt(Math.round(v * 100) / 100)}</text>`;
+    }
+    let lastX = -99;
+    ticks.forEach(t => {
+      const xx = xOfN(t.n);
+      if (!t.noLine) svg += `<line x1="${xx.toFixed(1)}" y1="${T}" x2="${xx.toFixed(1)}" y2="${T + plotH}" class="chart-grid chart-vgrid"/>`;
+      if (xx - lastX >= 38) {
+        svg += `<text x="${xx.toFixed(1)}" y="${H - 9}" class="chart-xtick">${t.lab}</text>`;
+        lastX = xx;
+      }
+    });
+    svg += `<line x1="${L}" y1="${T + plotH}" x2="${W - R}" y2="${T + plotH}" class="chart-axis"/>`;
+
+    // one continuous line per series — a missing day doesn't break it
+    o.series.forEach(s => {
+      const p = [...s.points].sort((a, b) => a.date.localeCompare(b.date));
+      if (p.length > 1) svg += `<path d="${p.map((q, i) => (i ? 'L' : 'M') + x(q.date).toFixed(1) + ' ' + y(q.v).toFixed(1)).join(' ')}" fill="none" stroke="${s.color}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>`;
+      p.forEach(q => {
+        svg += `<circle cx="${x(q.date).toFixed(1)}" cy="${y(q.v).toFixed(1)}" r="${q.color ? 4.5 : 3.5}" fill="${q.color || s.color}"${q.color ? ' stroke="#fafaf8" stroke-width="1.2"' : ''}/>`;
+      });
+    });
+
+    // best clean lift
+    if (o.star && inRange(o.star.date)) {
+      const sx = x(o.star.date), sy = y(o.star.v);
+      svg += `<text x="${sx.toFixed(1)}" y="${(sy - 9).toFixed(1)}" class="chart-star">★</text>`;
+    }
+    svg += '</svg>';
+
+    // scrub columns: one per day, holding every point on it
+    const byDate = {};
+    o.series.forEach(s => s.points.forEach(q => {
+      (byDate[q.date] = byDate[q.date] || []).push({ y: y(q.v), color: q.color || s.color });
+    }));
+    const id = 'gc' + (++chartSeq);
+    CHARTS[id] = { W, T, bottom: T + plotH,
+      cols: Object.keys(byDate).sort().map(d => ({ x: x(d), ys: byDate[d], html: o.tip(d) })) };
+
+    return `<div class="gchart" data-chart="${id}">
+              ${o.title ? `<div class="chart-title">${o.title}</div>` : ''}
+              <div class="gchart-plot">${svg}<div class="gtip"></div></div>
+            </div>`;
+  }
+
+  // Charts arrive as html, so their touch handling is attached after render.
+  function wireCharts(root){
+    root.querySelectorAll('.gchart').forEach(el => {
+      const c = CHARTS[el.dataset.chart];
+      if (!c || !c.cols.length) return;
+      const plot = el.querySelector('.gchart-plot');
+      const svg = plot.querySelector('svg'), tip = plot.querySelector('.gtip');
+      const NS = 'http://www.w3.org/2000/svg';
+      const cursor = document.createElementNS(NS, 'g');
+      svg.appendChild(cursor);
+      let cur = null;
+
+      const hide = () => { cur = null; tip.classList.remove('show'); while (cursor.firstChild) cursor.removeChild(cursor.firstChild); };
+      const show = (clientX) => {
+        const r = svg.getBoundingClientRect();
+        const vx = r.width ? (clientX - r.left) / r.width * c.W : c.cols[0].x;
+        let best = c.cols[0];
+        c.cols.forEach(col => { if (Math.abs(col.x - vx) < Math.abs(best.x - vx)) best = col; });
+        if (best === cur) return;
+        cur = best;
+        while (cursor.firstChild) cursor.removeChild(cursor.firstChild);
+        const line = document.createElementNS(NS, 'line');
+        [['x1', best.x], ['x2', best.x], ['y1', c.T], ['y2', c.bottom], ['class', 'chart-cursor']]
+          .forEach(([k, v]) => line.setAttribute(k, v));
+        cursor.appendChild(line);
+        best.ys.forEach(p => {
+          const dot = document.createElementNS(NS, 'circle');
+          [['cx', best.x], ['cy', p.y], ['r', 6.5], ['fill', p.color], ['stroke', '#fafaf8'], ['stroke-width', 2.5]]
+            .forEach(([k, v]) => dot.setAttribute(k, v));
+          cursor.appendChild(dot);
+        });
+        tip.innerHTML = best.html;
+        tip.classList.add('show');
+        // centred over the point, kept inside the chart
+        const pw = plot.clientWidth || r.width, tw = tip.offsetWidth || 0;
+        const px = best.x / c.W * (r.width || pw);
+        tip.style.left = Math.max(0, Math.min(pw - tw, px - tw / 2)) + 'px';
+      };
+
+      // press and hold to scrub; a quick swipe still scrolls the page
+      let timer = null, scrubbing = false, sx = 0, sy = 0;
+      plot.addEventListener('touchstart', e => {
+        const t = e.touches[0]; sx = t.clientX; sy = t.clientY; scrubbing = false;
+        clearTimeout(timer);
+        timer = setTimeout(() => { scrubbing = true; plot.classList.add('scrubbing'); cur = null; show(sx); }, 200);
+      }, { passive: true });
+      plot.addEventListener('touchmove', e => {
+        const t = e.touches[0];
+        if (scrubbing) { e.preventDefault(); show(t.clientX); return; }
+        if (Math.abs(t.clientX - sx) > 8 || Math.abs(t.clientY - sy) > 8) clearTimeout(timer);
+      }, { passive: false });
+      const end = () => { clearTimeout(timer); scrubbing = false; plot.classList.remove('scrubbing'); };
+      plot.addEventListener('touchend', end);
+      plot.addEventListener('touchcancel', end);
+      // a plain tap picks the nearest day; tapping the box closes it
+      plot.addEventListener('click', e => {
+        if (e.target.closest('.gtip')) return hide();
+        const was = cur; cur = null; show(e.clientX);
+        if (was && was === cur) hide();
+      });
+    });
+  }
+
+  // one set as you'd say it: "55kg × 8", or both arms when they differ
+  function oneSetText(set, mode){
+    const R = sideR(set);
+    if (mode !== 'time' && set.w && String(R.w) === String(set.w) && String(R.r) === String(set.r))
+      return set.w + 'kg × ' + set.r;
+    return setsSummary([set], mode).replace(/f$/, '') + (mode === 'time' ? '' : (set.w ? 'kg' : ' reps'));
+  }
+
+  function tipDate(k){
+    return new Date(k + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  }
+  const FORM_WORD = { good: 'good form', ok: 'okay form', poor: 'poor form' };
+  function formTag(f){
+    return f ? `<span class="tip-form"><i class="hist-form form-${f}"></i>${FORM_WORD[f]}</span>` : '<span class="tip-form muted">not rated</span>';
+  }
+
   // ── BODYWEIGHT ──
 
   const WEIGH_SLOTS = ['morning','afternoon','evening'];
@@ -1493,17 +1714,15 @@
 
   function renderWeightHistory(root){
     const w = loadWeights();
-    const dates = Object.keys(w).sort();
+    const dates = Object.keys(w).sort().filter(inRange);
     const filter = gymState.weightFilter || 'all';
-    const sel = gymState.weightSel;
 
     const COLORS = { morning: '#1a4d2e', afternoon: '#e0a800', evening: '#52b788' };
     const shown = filter === 'all' ? WEIGH_SLOTS : [filter];
     const series = shown.map(s => ({
-      name: s,
-      color: COLORS[s],
-      values: dates.map(d => (w[d] && w[d][s] != null) ? w[d][s] : null)
-    })).filter(s => s.values.some(v => v != null));
+      name: s, color: COLORS[s],
+      points: dates.filter(d => w[d][s] != null).map(d => ({ date: d, v: w[d][s] }))
+    })).filter(s => s.points.length);
 
     let h = `<button class="gym-back" onclick="gymGo('session')">&lsaquo; Back</button>
              <div class="screen-title" style="padding-top:6px">Bodyweight</div>`;
@@ -1512,16 +1731,18 @@
     [['all','All'], ...WEIGH_SLOTS.map(s => [s, s[0].toUpperCase() + s.slice(1)])].forEach(([v,l]) => {
       h += `<button class="chart-filter${filter === v ? ' active' : ''}" onclick="setWeightFilter('${v}')">${l}</button>`;
     });
-    h += '</div>';
+    h += '</div>' + '<div class="chart-toolbar">' + rangeChipsHTML() + '</div>';
 
-    if (!dates.length) {
-      h += '<div class="gym-nochart">Nothing logged yet</div>';
+    if (!series.length) {
+      h += `<div class="gym-nochart">${Object.keys(w).length ? 'Nothing in this range' : 'Nothing logged yet'}</div>`;
       root.innerHTML = h;
       return;
     }
 
-    h += `<div class="chart-block">${lineChart({
-      series, labels: dates, yLabel: 'kg', selected: sel, onSelect: 'selectWeightPoint', connectGaps: true
+    h += `<div class="chart-block">${gymChart({
+      series, steps: BW_STEPS,
+      tip: d => `<div class="tip-date">${tipDate(d)}</div>` + shown.filter(s => w[d][s] != null)
+        .map(s => `<div class="tip-line"><i class="tip-key" style="background:${COLORS[s]}"></i>${s[0].toUpperCase() + s.slice(1)} <b>${fmtNum(w[d][s])}kg</b></div>`).join('')
     })}</div>`;
 
     if (filter === 'all' && series.length > 1) {
@@ -1529,24 +1750,18 @@
         `<span class="legend-item"><i style="background:${s.color}"></i>${s.name}</span>`).join('') + '</div>';
     }
 
-    if (sel != null && dates[sel]) {
-      const d = dates[sel];
-      const parts = WEIGH_SLOTS.filter(s => w[d][s] != null).map(s => `${s} ${fmtNum(w[d][s])}kg`).join(' · ');
-      h += `<div class="chart-callout"><strong>${shortDate(d)}</strong> — ${parts}</div>`;
-    }
-
     h += '<div class="section-label" style="margin-top:22px">Log</div>';
     [...dates].reverse().forEach(d => {
       const parts = WEIGH_SLOTS.filter(s => w[d][s] != null)
         .map(s => `<span class="wl-slot">${s.slice(0,3)}</span> ${fmtNum(w[d][s])}kg`).join('  ');
-      const i = dates.indexOf(d);
-      h += `<div class="gym-hist-row${sel === i ? ' selected' : ''}" onclick="selectWeightPoint(${i})">
-              <div class="gym-hist-date">${new Date(d + 'T00:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})}</div>
+      h += `<div class="gym-hist-row">
+              <div class="gym-hist-date">${tipDate(d)}</div>
               <div class="gym-hist-sets">${parts}</div>
             </div>`;
     });
 
     root.innerHTML = h;
+    wireCharts(root);
   }
 
   function setWeightFilter(f){ gymState.weightFilter = f; gymState.weightSel = null; renderGym(); }
@@ -1589,9 +1804,9 @@
       // rated one, since that's the figure you'd stand behind
       const bestOf = (val) => valid.filter(s => val(s) === Math.max(...valid.map(val)))
         .sort((a, b) => FORM_RANK[a.form || ''] - FORM_RANK[b.form || ''])[0];
-      const topForm = (bestOf(heavy).form) || '';
-      const longestForm = (bestOf(secs).form) || '';
-      return { date, sets: valid, volume, top, totalTime, longest, topForm, longestForm };
+      const topSet = bestOf(heavy), longestSet = bestOf(secs);
+      const topForm = topSet.form || '', longestForm = longestSet.form || '';
+      return { date, sets: valid, volume, top, totalTime, longest, topForm, longestForm, topSet, longestSet };
     }).filter(Boolean);
   }
 
@@ -1615,79 +1830,111 @@
             <div class="gym-chart-scale"><span>${min}</span><span>${max}</span></div>`;
   }
 
+  // the heaviest green-form set ever logged (longest hold, for timed ones)
+  function bestCleanLift(key, mode){
+    let best = null;
+    exerciseHistory(key, s => s.form === 'good').forEach(p => {
+      const v = mode === 'time' ? p.longest : p.top;
+      if (!best || v > best.v) best = { date: p.date, v, set: mode === 'time' ? p.longestSet : p.topSet };
+    });
+    return best;
+  }
+
   function renderGymExercise(root){
     const { key, name } = gymState.exercise;
     const show = formShown();
     const allOn = FORM_KEYS.every(f => show[f]);
-    const hist = exerciseHistory(key, allOn ? null : (s => show[s.form || 'none']));
     const mode = modeForKey(key);
-    const sel = gymState.histSel;
-    const dates = hist.map(p => p.date);
+    const hist = exerciseHistory(key, allOn ? null : (s => show[s.form || 'none'])).filter(p => inRange(p.date));
+    const unit = mode === 'time' ? 'sec' : 'kg';
 
     let h = `<button class="gym-back" onclick="gymGo('${gymState.exerciseFrom || 'session'}')">&lsaquo; Back</button>
              <div class="screen-title" style="padding-top:6px">${escHtml(pretty(name))}</div>`;
 
-    // only offered once something has actually been rated
-    const anyRated = exerciseHistory(key).some(p => p.sets.some(s => s.form));
     // the colours are the filter and the legend at once: tap one to hide those sets
+    const anyRated = exerciseHistory(key).some(p => p.sets.some(s => s.form));
+    h += '<div class="chart-toolbar">';
     if (anyRated) {
       h += '<div class="form-toggles">' + FORM_KEYS.map(f =>
         `<button class="form-toggle form-${f}${show[f] ? ' on' : ''}" onclick="toggleFormShown('${f}')"
                  aria-label="${f === 'none' ? 'unrated' : f} sets"><i></i></button>`
       ).join('') + '</div>';
     }
+    h += rangeChipsHTML() + '</div>';
+
+    // two numbers worth chasing: the best clean lift, and how much of the work is clean
+    const best = anyRated ? bestCleanLift(key, mode) : null;
+    const rangeSets = exerciseHistory(key).filter(p => inRange(p.date)).flatMap(p => p.sets);
+    const rated = rangeSets.filter(s => s.form);
+    if (anyRated) {
+      const share = rated.length ? Math.round(100 * rated.filter(s => s.form === 'good').length / rated.length) : null;
+      h += `<div class="stat-pair">
+              <div class="stat-card">
+                <div class="stat-label"><span class="chart-star-inline">★</span> Best clean ${mode === 'time' ? 'hold' : 'lift'}</div>
+                <div class="stat-value">${best ? escHtml(oneSetText(best.set, mode)) : '—'}</div>
+                <div class="stat-sub">${best ? shortDate(best.date) : 'no green sets yet'}</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-label">Green sets</div>
+                <div class="stat-value">${share == null ? '—' : share + '%'}</div>
+                <div class="stat-sub">${rated.length} rated${(gymState.range || 'all') === 'all' ? '' : ' in range'}</div>
+              </div>
+            </div>`;
+    }
 
     if (!hist.length) {
-      h += `<div class="gym-nochart">${allOn ? 'Nothing logged yet' : 'No sets in those colours yet'}</div>`;
+      h += `<div class="gym-nochart">${!exerciseHistory(key).length ? 'Nothing logged yet'
+             : !allOn ? 'No sets in those colours here' : 'Nothing in this range'}</div>`;
       root.innerHTML = h;
       return;
     }
 
-    const primary = mode === 'time'
-      ? { label: 'Longest hold', unit: 'sec', values: hist.map(p => p.longest),
-          forms: hist.map(p => p.longestForm) }
-      : { label: 'Heaviest set', unit: 'kg',  values: hist.map(p => p.top),
-          forms: hist.map(p => p.topForm) };
-    const secondary = mode === 'time'
-      ? { label: 'Total time',   unit: 'sec', values: hist.map(p => p.totalTime) }
-      : { label: 'Total volume', unit: 'kg',  values: hist.map(p => p.volume) };
+    const byDate = Object.fromEntries(hist.map(p => [p.date, p]));
+    const heavyLabel = mode === 'time' ? 'Longest hold' : 'Heaviest set';
+    const volLabel = mode === 'time' ? 'Total time' : 'Total volume';
 
-    [primary, secondary].forEach((s, idx) => {
-      h += `<div class="chart-block">
-              <div class="chart-title">${s.label} (${s.unit})</div>
-              ${lineChart({
-                series: [{ name: s.label, color: idx ? '#52b788' : '#1a4d2e', values: s.values,
-                           pointColors: (!idx && anyRated) ? s.forms.map(f => FORM_COLORS[f || '']) : null }],
-                labels: dates,
-                yLabel: s.unit,
-                selected: sel,
-                onSelect: 'selectHistPoint'
-              })}
-            </div>`;
-    });
+    h += `<div class="chart-block">${gymChart({
+      title: `${heavyLabel} (${unit})`,
+      steps: mode === 'time' ? SEC_STEPS : KG_STEPS,
+      fmt: mode === 'time' ? fmtDur : fmtNum,
+      star: best ? { date: best.date, v: best.v } : null,
+      series: [{ color: '#1a4d2e', points: hist.map(p => ({
+        date: p.date, v: mode === 'time' ? p.longest : p.top,
+        color: anyRated ? FORM_COLORS[(mode === 'time' ? p.longestForm : p.topForm) || ''] : null })) }],
+      tip: d => {
+        const p = byDate[d], s = mode === 'time' ? p.longestSet : p.topSet;
+        return `<div class="tip-date">${tipDate(d)}</div>
+                <div class="tip-line"><b>${escHtml(oneSetText(s, mode))}</b>${formTag(s.form)}</div>`;
+      }
+    })}</div>`;
 
-    if (sel != null && hist[sel]) {
-      const p = hist[sel];
-      h += `<div class="chart-callout">
-              <strong>${shortDate(p.date)}</strong> — ${formSetsHTML(p.sets, mode)}
-            </div>`;
-    }
+    h += `<div class="chart-block">${gymChart({
+      title: `${volLabel} (${unit})`,
+      steps: mode === 'time' ? SEC_STEPS : KG_STEPS,
+      fmt: mode === 'time' ? fmtDur : fmtNum,
+      series: [{ color: '#52b788', points: hist.map(p => ({ date: p.date, v: mode === 'time' ? p.totalTime : p.volume })) }],
+      tip: d => {
+        const p = byDate[d];
+        return `<div class="tip-date">${tipDate(d)}</div>
+                <div class="tip-line"><b>${mode === 'time' ? fmtDur(p.totalTime) : fmtNum(p.volume) + 'kg'}</b> over ${p.sets.length} set${p.sets.length === 1 ? '' : 's'}</div>`;
+      }
+    })}</div>`;
 
     h += '<div class="section-label" style="margin-top:22px">Sessions</div>';
-    hist.map((p, i) => ({ p, i })).reverse().forEach(({ p, i }) => {
-      const d = new Date(p.date + 'T00:00:00');
-      h += `<div class="gym-hist-row${sel === i ? ' selected' : ''}" onclick="selectHistPoint(${i})">
-              <div class="gym-hist-date">${d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})}</div>
+    [...hist].reverse().forEach(p => {
+      h += `<div class="gym-hist-row">
+              <div class="gym-hist-date">${tipDate(p.date)}</div>
               <div class="gym-hist-sets">${formSetsHTML(p.sets, mode)}</div>
               <div class="gym-hist-meta">${mode === 'time'
                   ? 'longest ' + fmtDur(p.longest) + ' · ' + fmtDur(p.totalTime) + ' total'
                   : 'top ' + p.top + 'kg · ' + p.volume + 'kg total'}
-                <button class="hist-open" onclick="event.stopPropagation();gymJumpTo('${p.date}')">Open</button>
+                <button class="hist-open" onclick="gymJumpTo('${p.date}')">Open</button>
               </div>
             </div>`;
     });
 
     root.innerHTML = h;
+    wireCharts(root);
   }
 
   function selectHistPoint(i){
@@ -1756,37 +2003,67 @@
     return hit ? hit[0] : 'Other';
   }
 
+  // exercises logged fewer times than this sit in "Rarely done" — the same
+  // threshold the streak editor uses for habits
+  const HIST_MIN_SESSIONS = 3;
+
   function historyIndex(){
     const log = loadGymLog();
-    const byKey = {};
-    Object.keys(log).sort().forEach(date => {
-      const ex = log[date].exercises || {};
-      Object.keys(ex).forEach(key => {
-        const sets = (ex[key] || []).filter(hasRep);
-        if (!sets.length) return;
-        const e = byKey[key] || (byKey[key] = { key, count: 0 });
-        e.count++;
-        e.last = date;
-        e.lastSets = sets;
-      });
-    });
-    return Object.values(byKey).map(e => {
-      const mode = modeForKey(e.key);
-      const top = mode === 'time'
-        ? fmtDur(Math.max(...e.lastSets.map(s => Number(s.r) || 0)))
-        : fmtNum(Math.max(...e.lastSets.map(s => Math.min(Number(s.w)||0, Number(sideR(s).w)||0)))) + 'kg';
-      return { ...e, name: unslug(e.key), area: areaOf(e.key), top };
-    }).sort((a, b) => b.last.localeCompare(a.last));
+    const keys = new Set();
+    Object.values(log).forEach(s => Object.keys(s.exercises || {}).forEach(k => keys.add(k)));
+    return [...keys].map(key => {
+      const hist = exerciseHistory(key);
+      if (!hist.length) return null;
+      const mode = modeForKey(key);
+      const last = hist[hist.length - 1];
+      const top = mode === 'time' ? fmtDur(last.longest) : fmtNum(last.top) + 'kg';
+      return { key, hist, mode, count: hist.length, last: last.date, top,
+               name: unslug(key), area: areaOf(key) };
+    }).filter(Boolean).sort((a, b) => b.last.localeCompare(a.last));
   }
 
-  function setHistArea(a){ gymState.histArea = a; renderGym(); }
+  // the last dozen sessions, each point coloured by the form of its top set
+  function miniTrend(i){
+    const pts = i.hist.slice(-12);
+    const W = 72, H = 26, P = 4;
+    const vals = pts.map(p => i.mode === 'time' ? p.longest : p.top);
+    const lo = Math.min(...vals), hi = Math.max(...vals), span = (hi - lo) || 1;
+    const xy = pts.map((p, k) => [
+      pts.length > 1 ? P + k * (W - 2 * P) / (pts.length - 1) : W / 2,
+      hi === lo ? H / 2 : H - P - ((vals[k] - lo) / span) * (H - 2 * P)
+    ]);
+    const path = xy.length > 1 ? `<path d="${xy.map(([x, y], k) => (k ? 'L' : 'M') + x.toFixed(1) + ' ' + y.toFixed(1)).join(' ')}" fill="none" stroke="#b8b8b2" stroke-width="1.5" stroke-linejoin="round"/>` : '';
+    const dots = xy.map(([x, y], k) => {
+      const f = (i.mode === 'time' ? pts[k].longestForm : pts[k].topForm);
+      return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${k === xy.length - 1 ? 3 : 2}" fill="${f ? FORM_COLORS[f] : '#9a9a94'}"/>`;
+    }).join('');
+    return `<svg class="hist-trend" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">${path}${dots}</svg>`;
+  }
+
+  function toggleHistArea(a){
+    const open = gymState.histOpen || (gymState.histOpen = {});
+    open[a] = !histAreaOpen(a);
+    renderGym();
+  }
+  function histAreaOpen(a){
+    const open = gymState.histOpen || {};
+    return a in open ? open[a] : a !== 'Rarely done';
+  }
+
+  // share of rated sets that were green, for a yyyy-mm month
+  function greenShare(month){
+    const log = loadGymLog();
+    let rated = 0, good = 0;
+    Object.keys(log).filter(d => d.startsWith(month)).forEach(d =>
+      Object.values(log[d].exercises || {}).forEach(sets => sets.filter(hasRep).forEach(s => {
+        if (!s.form) return;
+        rated++; if (s.form === 'good') good++;
+      })));
+    return rated ? { pct: Math.round(100 * good / rated), rated } : null;
+  }
 
   function renderGymHistory(root){
     const items = historyIndex();
-    const areas = BODY_AREAS.map(a => a[0]).concat('Other').filter(a => items.some(i => i.area === a));
-    let area = gymState.histArea || 'All';
-    if (area !== 'All' && !areas.includes(area)) area = 'All';
-
     let h = `<button class="gym-back" onclick="gymGo('session')">&lsaquo; Back</button>
              <div class="screen-title" style="padding-top:6px">History</div>`;
 
@@ -1796,29 +2073,41 @@
       return;
     }
 
-    h += '<div class="chart-filters">' + ['All', ...areas].map(a =>
-      `<button class="chart-filter${area === a ? ' active' : ''}" onclick="setHistArea('${a}')">${a}</button>`
-    ).join('') + '</div>';
+    const now = new Date();
+    const thisM = ymd(now).slice(0, 7);
+    const prevM = ymd(new Date(now.getFullYear(), now.getMonth() - 1, 1)).slice(0, 7);
+    const cur = greenShare(thisM), prev = greenShare(prevM);
+    if (cur || prev) {
+      h += `<div class="stat-card stat-wide">
+              <div class="stat-label">Green sets this month</div>
+              <div class="stat-value">${cur ? cur.pct + '%' : '—'}</div>
+              <div class="stat-sub">${cur ? cur.rated + ' rated' : 'nothing rated yet'}${prev ? ' · last month ' + prev.pct + '%' : ''}</div>
+            </div>`;
+    }
 
-    const row = i => {
-      const d = new Date(i.last + 'T00:00:00').toLocaleDateString('en-US', { month:'short', day:'numeric' });
-      const dots = i.lastSets.map(s => `<i class="hist-form form-${s.form || 'none'}"></i>`).join('');
-      return `<div class="hist-ex-row" onclick="openExercise('${i.key}', null, 'history')">
-                <div class="hist-ex-main">
-                  <div class="hist-ex-name">${escHtml(pretty(i.name))}</div>
-                  <div class="gym-hist-meta">${d} · top ${i.top} · ${i.count} session${i.count === 1 ? '' : 's'}</div>
-                </div>
-                <div class="hist-ex-dots">${dots}</div>
-                <span class="gym-ex-chev">&rsaquo;</span>
-              </div>`;
-    };
+    const regular = items.filter(i => i.count >= HIST_MIN_SESSIONS);
+    const rare = items.filter(i => i.count < HIST_MIN_SESSIONS);
+    const groups = BODY_AREAS.map(a => a[0]).concat('Other')
+      .map(a => [a, regular.filter(i => i.area === a)])
+      .filter(([, list]) => list.length);
+    if (rare.length) groups.push(['Rarely done', rare]);
 
-    const shown = area === 'All' ? areas : [area];
-    shown.forEach(a => {
-      const list = items.filter(i => i.area === a);
-      if (area === 'All') h += `<div class="section-label" style="margin-top:20px">${a}</div>`;
-      else h += '<div style="height:12px"></div>';
-      h += list.map(row).join('');
+    const row = i => `<div class="hist-ex-row" onclick="openExercise('${i.key}', null, 'history')">
+        <div class="hist-ex-main">
+          <div class="hist-ex-name">${escHtml(pretty(i.name))}</div>
+          <div class="gym-hist-meta">${shortDate(i.last)} · top ${i.top} · ${i.count} session${i.count === 1 ? '' : 's'}</div>
+        </div>
+        ${miniTrend(i)}
+        <span class="gym-ex-chev">&rsaquo;</span>
+      </div>`;
+
+    groups.forEach(([a, list]) => {
+      const open = histAreaOpen(a);
+      h += `<button class="hist-area-head" onclick="toggleHistArea('${a}')">
+              <span>${a}</span><span class="hist-area-count">${list.length}</span>
+              <span class="hist-area-chev${open ? ' open' : ''}">&rsaquo;</span>
+            </button>`;
+      if (open) h += list.map(row).join('');
     });
 
     root.innerHTML = h;
