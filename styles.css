@@ -2727,3 +2727,34 @@
 .asterisk-remove { background: none; border: none; color: #b5503f; margin-right: auto; padding-left: 0 !important; }
 
 .today-asterisk { display: none; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #b5503f; margin-top: 5px; }
+
+/* ── gym history: form dots and the browser ── */
+.gym-bottom-row { display: flex; gap: 8px; margin-top: 10px; }
+.gym-bottom-row .sync-btn { flex: 1; }
+.hist-set { display: inline-flex; align-items: center; gap: 4px; margin-right: 10px; white-space: nowrap; }
+.hist-form { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; background: #c8c8c2; }
+.hist-form.form-good { background: #52b788; }
+.hist-form.form-ok   { background: #e0a800; }
+.hist-form.form-poor { background: #c0392b; }
+.hist-form.form-none { background: transparent; border: 1.2px solid #c8c8c2; width: 7px; height: 7px; }
+.hist-ex-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 2px; border-bottom: 1px solid var(--border); cursor: pointer;
+}
+.hist-ex-row:active { background: var(--off-white); }
+.hist-ex-main { flex: 1; min-width: 0; }
+.hist-ex-name { font-size: 1rem; font-weight: 600; color: var(--ink); }
+.hist-ex-dots { display: flex; gap: 3px; flex-shrink: 0; }
+.form-toggles { display: flex; gap: 8px; margin-top: 14px; }
+.form-toggle {
+  width: 44px; height: 32px; border-radius: 16px; cursor: pointer;
+  border: 1.5px solid var(--border); background: transparent;
+  display: flex; align-items: center; justify-content: center;
+}
+.form-toggle i { width: 12px; height: 12px; border-radius: 50%; display: block; opacity: 0.3; }
+.form-toggle.on { border-color: var(--ink-mid); background: var(--off-white); }
+.form-toggle.on i { opacity: 1; }
+.form-toggle.form-good i { background: #52b788; }
+.form-toggle.form-ok i   { background: #e0a800; }
+.form-toggle.form-poor i { background: #c0392b; }
+.form-toggle.form-none i { background: transparent; border: 1.5px solid #9a9a94; width: 11px; height: 11px; }

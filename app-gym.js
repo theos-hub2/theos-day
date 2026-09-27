@@ -832,6 +832,7 @@
     const root = document.getElementById('gymBody');
     if (gymState.view === 'exercise') return renderGymExercise(root);
     if (gymState.view === 'weight')   return renderWeightHistory(root);
+    if (gymState.view === 'history')  return renderGymHistory(root);
     if (gymState.view === 'edit')     return renderGymEdit(root);
     renderGymSession(root);
   }
@@ -903,7 +904,8 @@
               <p>${kept
                 ? 'This day still has a logged session saved. Pick that workout again to see it.'
                 : 'Pick a workout above to log one for this day.'}</p>
-            </div>`;
+            </div>
+            <button class="sync-btn gym-edit-btn" onclick="gymGo('history')">History</button>`;
       root.innerHTML = h;
       return;
     }
@@ -1092,8 +1094,11 @@
           </button>`;
 
     // everything you don't need mid-set
-    h += `<button class="sync-btn gym-edit-btn" onclick="toggleGymOptions()">${
-            gymState.optionsOpen ? 'Close options' : 'Session options'}</button>`;
+    h += `<div class="gym-bottom-row">
+            <button class="sync-btn" onclick="gymGo('history')">History</button>
+            <button class="sync-btn" onclick="toggleGymOptions()">${
+              gymState.optionsOpen ? 'Close options' : 'Session options'}</button>
+          </div>`;
 
     if (gymState.optionsOpen) {
       h += `<div class="gym-options">
@@ -1340,7 +1345,7 @@
 
   // series: [{ name, color, values: [] }]  — values align with labels
   function lineChart(opts){
-    const { series, labels, yLabel, y2Label, selected, onSelect, monthLabels } = opts;
+    const { series, labels, yLabel, y2Label, selected, onSelect, monthLabels, connectGaps } = opts;
     const hasRight = series.some(s => s.axis === 'right');
     const W = 320, H = 190, L = 40, R = hasRight ? 42 : 12, T = 14, B = 34;
     const plotW = W - L - R, plotH = H - T - B;
@@ -1393,7 +1398,9 @@
       const yy = s.axis === 'right' ? yR : y;
       let d = '', open = false;
       s.values.forEach((v, i) => {
-        if (v == null) { open = false; return; }
+        // connectGaps joins a series across days it has no value, so morning
+        // weigh-ins link to morning weigh-ins even with afternoons in between
+        if (v == null) { if (!connectGaps) open = false; return; }
         d += (open ? 'L' : 'M') + x(i).toFixed(1) + ' ' + yy(v).toFixed(1) + ' ';
         open = true;
       });
@@ -1401,7 +1408,11 @@
       s.values.forEach((v, i) => {
         if (v == null) return;
         const sel = selected === i;
-        svg += `<circle cx="${x(i).toFixed(1)}" cy="${yy(v).toFixed(1)}" r="${sel ? 5.5 : 3.5}" fill="${s.color}"${sel ? ' stroke="#fafaf8" stroke-width="2"' : ''}/>`;
+        // a series can colour each point on its own — used for form ratings
+        const pc = s.pointColors ? s.pointColors[i] : null;
+        const fill = pc || s.color;
+        const big = pc ? 4.5 : 3.5;
+        svg += `<circle cx="${x(i).toFixed(1)}" cy="${yy(v).toFixed(1)}" r="${sel ? 6 : big}" fill="${fill}"${(sel || pc) ? ` stroke="#fafaf8" stroke-width="${sel ? 2 : 1.2}"` : ''}/>`;
       });
     });
 
@@ -1510,7 +1521,7 @@
     }
 
     h += `<div class="chart-block">${lineChart({
-      series, labels: dates, yLabel: 'kg', selected: sel, onSelect: 'selectWeightPoint'
+      series, labels: dates, yLabel: 'kg', selected: sel, onSelect: 'selectWeightPoint', connectGaps: true
     })}</div>`;
 
     if (filter === 'all' && series.length > 1) {
@@ -1543,20 +1554,23 @@
 
   // ── EXERCISE HISTORY ──
 
-  function openExercise(key, name){
-    gymState.exercise = { key, name };
+  function openExercise(key, name, from){
+    gymState.exercise = { key, name: name || unslug(key) };
     gymState.histSel = null;
+    gymState.exerciseFrom = from || 'session';
     gymState.view = 'exercise';
     renderGym();
   }
   function gymGo(view){ gymState.view = view; renderGym(); }
 
-  function exerciseHistory(key){
+  // keep(set) narrows which sets count — e.g. only green-form ones. A session
+  // with nothing left drops out entirely, so the line doesn't gap.
+  function exerciseHistory(key, keep){
     const log = loadGymLog();
     return Object.keys(log).sort().map(date => {
       const sets = log[date].exercises && log[date].exercises[key];
       if (!sets) return null;
-      const valid = sets.filter(hasRep);
+      const valid = sets.filter(hasRep).filter(s => !keep || keep(s));
       if (!valid.length) return null;
       // Both arms are read the same way whether or not the set was split: an
       // unsplit set simply has two identical sides, so averaging gives back the
@@ -1571,7 +1585,13 @@
       const top = Math.max(...valid.map(heavy));
       const totalTime = valid.reduce((a,s) => a + secs(s), 0);
       const longest = Math.max(...valid.map(secs));
-      return { date, sets: valid, volume, top, totalTime, longest };
+      // the form of the set that made the headline number; on a tie, the best-
+      // rated one, since that's the figure you'd stand behind
+      const bestOf = (val) => valid.filter(s => val(s) === Math.max(...valid.map(val)))
+        .sort((a, b) => FORM_RANK[a.form || ''] - FORM_RANK[b.form || ''])[0];
+      const topForm = (bestOf(heavy).form) || '';
+      const longestForm = (bestOf(secs).form) || '';
+      return { date, sets: valid, volume, top, totalTime, longest, topForm, longestForm };
     }).filter(Boolean);
   }
 
@@ -1597,23 +1617,37 @@
 
   function renderGymExercise(root){
     const { key, name } = gymState.exercise;
-    const hist = exerciseHistory(key);
+    const show = formShown();
+    const allOn = FORM_KEYS.every(f => show[f]);
+    const hist = exerciseHistory(key, allOn ? null : (s => show[s.form || 'none']));
     const mode = modeForKey(key);
     const sel = gymState.histSel;
     const dates = hist.map(p => p.date);
 
-    let h = `<button class="gym-back" onclick="gymGo('session')">&lsaquo; Back</button>
+    let h = `<button class="gym-back" onclick="gymGo('${gymState.exerciseFrom || 'session'}')">&lsaquo; Back</button>
              <div class="screen-title" style="padding-top:6px">${escHtml(pretty(name))}</div>`;
 
+    // only offered once something has actually been rated
+    const anyRated = exerciseHistory(key).some(p => p.sets.some(s => s.form));
+    // the colours are the filter and the legend at once: tap one to hide those sets
+    if (anyRated) {
+      h += '<div class="form-toggles">' + FORM_KEYS.map(f =>
+        `<button class="form-toggle form-${f}${show[f] ? ' on' : ''}" onclick="toggleFormShown('${f}')"
+                 aria-label="${f === 'none' ? 'unrated' : f} sets"><i></i></button>`
+      ).join('') + '</div>';
+    }
+
     if (!hist.length) {
-      h += '<div class="gym-nochart">Nothing logged yet</div>';
+      h += `<div class="gym-nochart">${allOn ? 'Nothing logged yet' : 'No sets in those colours yet'}</div>`;
       root.innerHTML = h;
       return;
     }
 
     const primary = mode === 'time'
-      ? { label: 'Longest hold', unit: 'sec', values: hist.map(p => p.longest) }
-      : { label: 'Heaviest set', unit: 'kg',  values: hist.map(p => p.top) };
+      ? { label: 'Longest hold', unit: 'sec', values: hist.map(p => p.longest),
+          forms: hist.map(p => p.longestForm) }
+      : { label: 'Heaviest set', unit: 'kg',  values: hist.map(p => p.top),
+          forms: hist.map(p => p.topForm) };
     const secondary = mode === 'time'
       ? { label: 'Total time',   unit: 'sec', values: hist.map(p => p.totalTime) }
       : { label: 'Total volume', unit: 'kg',  values: hist.map(p => p.volume) };
@@ -1622,7 +1656,8 @@
       h += `<div class="chart-block">
               <div class="chart-title">${s.label} (${s.unit})</div>
               ${lineChart({
-                series: [{ name: s.label, color: idx ? '#52b788' : '#1a4d2e', values: s.values }],
+                series: [{ name: s.label, color: idx ? '#52b788' : '#1a4d2e', values: s.values,
+                           pointColors: (!idx && anyRated) ? s.forms.map(f => FORM_COLORS[f || '']) : null }],
                 labels: dates,
                 yLabel: s.unit,
                 selected: sel,
@@ -1634,7 +1669,7 @@
     if (sel != null && hist[sel]) {
       const p = hist[sel];
       h += `<div class="chart-callout">
-              <strong>${shortDate(p.date)}</strong> — ${setsSummary(p.sets, mode)}
+              <strong>${shortDate(p.date)}</strong> — ${formSetsHTML(p.sets, mode)}
             </div>`;
     }
 
@@ -1643,7 +1678,7 @@
       const d = new Date(p.date + 'T00:00:00');
       h += `<div class="gym-hist-row${sel === i ? ' selected' : ''}" onclick="selectHistPoint(${i})">
               <div class="gym-hist-date">${d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})}</div>
-              <div class="gym-hist-sets">${setsSummary(p.sets, mode)}</div>
+              <div class="gym-hist-sets">${formSetsHTML(p.sets, mode)}</div>
               <div class="gym-hist-meta">${mode === 'time'
                   ? 'longest ' + fmtDur(p.longest) + ' · ' + fmtDur(p.totalTime) + ' total'
                   : 'top ' + p.top + 'kg · ' + p.volume + 'kg total'}
@@ -1667,6 +1702,126 @@
     gymState.expanded = {};
     gymState.view = 'session';
     renderGym();
+  }
+
+  // ── FORM IN HISTORY ──
+  // Better form often means less weight for a while, which makes a plain weight
+  // line read as going backwards. Showing the rating next to each number keeps
+  // that honest, and "Good form only" gives the line you'd actually stand behind.
+
+  const FORM_COLORS = { good: '#52b788', ok: '#e0a800', poor: '#c0392b', '': '#c8c8c2' };
+  const FORM_RANK   = { good: 0, ok: 1, poor: 2, '': 3 };
+
+  // which ratings the history charts include; 'none' is unrated sets
+  const FORM_KEYS = ['good','ok','poor','none'];
+  function formShown(){
+    return gymState.formShow || (gymState.formShow = { good:true, ok:true, poor:true, none:true });
+  }
+  function toggleFormShown(f){
+    const show = formShown();
+    // switching off the last colour would leave an empty chart — ignore it
+    if (show[f] && FORM_KEYS.filter(k => show[k]).length === 1) return;
+    show[f] = !show[f];
+    gymState.histSel = null;
+    renderGym();
+  }
+
+  // each set with its own form dot; unrated sets get no dot rather than a grey one
+  function formSetsHTML(sets, mode){
+    return sets.filter(hasRep).map(s => {
+      const one = setsSummary([s], mode);
+      if (!one) return '';
+      const dot = s.form ? `<i class="hist-form form-${s.form}"></i>` : '';
+      return `<span class="hist-set">${dot}${escHtml(one)}</span>`;
+    }).filter(Boolean).join('');
+  }
+
+  // ── HISTORY BROWSER ──
+  // Every exercise you've logged, grouped by body area. The movement groups
+  // above are for swapping and are too fine to browse by, so they roll up here.
+
+  const BODY_AREAS = [
+    ['Chest',     ['chestPress','chestFly']],
+    ['Back',      ['backRow','backPull','lowerBack','traps']],
+    ['Shoulders', ['shoulders','sideDelts','rearDelts','frontDelts']],
+    ['Arms',      ['biceps','triceps','forearms']],
+    ['Legs',      ['quads','hamstrings','hinge','glutes','calves','hips','power']],
+    ['Core',      ['core']],
+    ['Cardio',    ['cardio']]
+  ];
+
+  function areaOf(key){
+    const g = GROUP_OF[String(key).split('--')[0]];
+    const hit = BODY_AREAS.find(([, gs]) => gs.includes(g));
+    return hit ? hit[0] : 'Other';
+  }
+
+  function historyIndex(){
+    const log = loadGymLog();
+    const byKey = {};
+    Object.keys(log).sort().forEach(date => {
+      const ex = log[date].exercises || {};
+      Object.keys(ex).forEach(key => {
+        const sets = (ex[key] || []).filter(hasRep);
+        if (!sets.length) return;
+        const e = byKey[key] || (byKey[key] = { key, count: 0 });
+        e.count++;
+        e.last = date;
+        e.lastSets = sets;
+      });
+    });
+    return Object.values(byKey).map(e => {
+      const mode = modeForKey(e.key);
+      const top = mode === 'time'
+        ? fmtDur(Math.max(...e.lastSets.map(s => Number(s.r) || 0)))
+        : fmtNum(Math.max(...e.lastSets.map(s => Math.min(Number(s.w)||0, Number(sideR(s).w)||0)))) + 'kg';
+      return { ...e, name: unslug(e.key), area: areaOf(e.key), top };
+    }).sort((a, b) => b.last.localeCompare(a.last));
+  }
+
+  function setHistArea(a){ gymState.histArea = a; renderGym(); }
+
+  function renderGymHistory(root){
+    const items = historyIndex();
+    const areas = BODY_AREAS.map(a => a[0]).concat('Other').filter(a => items.some(i => i.area === a));
+    let area = gymState.histArea || 'All';
+    if (area !== 'All' && !areas.includes(area)) area = 'All';
+
+    let h = `<button class="gym-back" onclick="gymGo('session')">&lsaquo; Back</button>
+             <div class="screen-title" style="padding-top:6px">History</div>`;
+
+    if (!items.length) {
+      h += '<div class="gym-nochart">Nothing logged yet</div>';
+      root.innerHTML = h;
+      return;
+    }
+
+    h += '<div class="chart-filters">' + ['All', ...areas].map(a =>
+      `<button class="chart-filter${area === a ? ' active' : ''}" onclick="setHistArea('${a}')">${a}</button>`
+    ).join('') + '</div>';
+
+    const row = i => {
+      const d = new Date(i.last + 'T00:00:00').toLocaleDateString('en-US', { month:'short', day:'numeric' });
+      const dots = i.lastSets.map(s => `<i class="hist-form form-${s.form || 'none'}"></i>`).join('');
+      return `<div class="hist-ex-row" onclick="openExercise('${i.key}', null, 'history')">
+                <div class="hist-ex-main">
+                  <div class="hist-ex-name">${escHtml(pretty(i.name))}</div>
+                  <div class="gym-hist-meta">${d} · top ${i.top} · ${i.count} session${i.count === 1 ? '' : 's'}</div>
+                </div>
+                <div class="hist-ex-dots">${dots}</div>
+                <span class="gym-ex-chev">&rsaquo;</span>
+              </div>`;
+    };
+
+    const shown = area === 'All' ? areas : [area];
+    shown.forEach(a => {
+      const list = items.filter(i => i.area === a);
+      if (area === 'All') h += `<div class="section-label" style="margin-top:20px">${a}</div>`;
+      else h += '<div style="height:12px"></div>';
+      h += list.map(row).join('');
+    });
+
+    root.innerHTML = h;
   }
 
   // ── EDIT ROUTINE ──
