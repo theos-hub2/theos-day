@@ -3,6 +3,8 @@
 
 // Runs once everything above is loaded.
 applyAimsState('banners');
+applyAimsState('today');
+renderTodayAims();
 initSyncScreen();
 initNotifScreen();
 fetchChessRating();

@@ -562,20 +562,28 @@
   let suggestIndex = -1;
   let calSuggestIndex = -1;
 
+  // Only habits get suggested: tasks ticked on at least STREAK_MIN_COUNT
+  // separate days — the same bar the streak editor uses. One-offs like
+  // "buy socks" never show up.
   function pastTaskNames(){
     const data = loadData();
     const counts = new Map();
     Object.values(data).forEach(day => {
       if (!day.tasks) return;
+      const seen = new Set();
       day.tasks.forEach(t => {
         const name = (t.text || '').trim();
-        if (!name) return;
+        if (!name || !t.done) return;
         const norm = normalizeTaskName(name);
+        if (seen.has(norm)) return;
+        seen.add(norm);
         if (!counts.has(norm)) counts.set(norm, { name, n: 0 });
         counts.get(norm).n++;
       });
     });
-    return [...counts.values()].sort((a,b) => b.n - a.n).map(x => x.name);
+    return [...counts.values()]
+      .filter(x => x.n >= STREAK_MIN_COUNT)
+      .sort((a,b) => b.n - a.n).map(x => x.name);
   }
 
   function suggestionsFor(query, dayKey){
@@ -741,7 +749,16 @@
     const day=getDay(todayKey);
     day.tasks[i].done=!day.tasks[i].done;
     saveDay(todayKey,day);
+    afterTaskToggle(todayKey, day.tasks[i]);
     renderToday();
+  }
+
+  // Some tasks mirror a hobby — ticking Read on a day counts as a reading day.
+  // The hobby file defines the handler; this just passes the change along.
+  function afterTaskToggle(key, task){
+    if (task && task.text.trim().toLowerCase() === 'read' && typeof readTaskToggled === 'function') {
+      readTaskToggled(key, task.done);
+    }
   }
   
   function deleteTask(i){
@@ -1045,6 +1062,7 @@ el.innerHTML = content;
     const day=getDay(key);
     day.tasks[i].done=!day.tasks[i].done;
     saveDay(key,day);
+    afterTaskToggle(key, day.tasks[i]);
     renderDayView(key);
     if(key===todayKey)renderToday();
   }
@@ -1185,6 +1203,7 @@ el.innerHTML = content;
     list.innerHTML = '';
 
     syncTargetVisibility(scope);
+    if (scope === 'week' || scope === 'month') renderTodayAims();
 
     // summary next to the collapsible header
     const meta = document.getElementById('aimsMeta-' + scope);
@@ -1325,6 +1344,83 @@ el.innerHTML = content;
     const open = aimsOpen(scope);
     body.classList.toggle('collapsed', !open);
     if (chev) chev.classList.toggle('open', open);
+  }
+
+  // ── AIMS ON TODAY ──
+  // The same aims as Month, not a copy — read straight from this week's and
+  // this month's keys. Always the current period, whatever week Month is on.
+
+  function currentAimsKey(scope){
+    const now = new Date();
+    return scope === 'week'
+      ? 'theosGoals-week-' + ymd(weekStartOf(now))
+      : 'theosGoals-month-' + now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
+  }
+  function loadCurrentAims(scope){
+    try { return JSON.parse(localStorage.getItem(currentAimsKey(scope)) || '[]'); }
+    catch { return []; }
+  }
+
+  function tickTodayAim(scope, i, delta){
+    const key = currentAimsKey(scope);
+    const arr = loadCurrentAims(scope);
+    const g = arr[i];
+    if (!g) return;
+    if (g.type === 'recurring') {
+      g.current = Math.max(0, Math.min(g.target, g.current + (delta || 1)));
+      g.done = g.current >= g.target;
+    } else {
+      g.done = !g.done;
+    }
+    localStorage.setItem(key, JSON.stringify(arr));
+    queueSync();
+    renderTodayAims();
+    // keep Month in step if it's showing the same period
+    renderGoals('week');
+    renderGoals('month');
+  }
+
+  function openMonthAims(){
+    const now = new Date();
+    calYear = now.getFullYear(); calMonth = now.getMonth();
+    selKey = null;
+    const dv = document.getElementById('dayView');
+    if (dv) dv.style.display = 'none';
+    localStorage.setItem('theosAimsOpen-week', 'open');
+    switchTab('month', document.querySelector('.tabbtn[aria-label="Month"]'));
+  }
+
+  function renderTodayAims(){
+    const list = document.getElementById('todayAimsList');
+    if (!list) return;
+    const week = loadCurrentAims('week');
+    const month = loadCurrentAims('month');
+    const doneOf = a => a.filter(g => g.done).length;
+
+    const meta = document.getElementById('aimsMeta-today');
+    if (meta) {
+      meta.textContent = (week.length ? doneOf(week) + ' of ' + week.length : 'none this week')
+        + (month.length ? ' · month ' + doneOf(month) + ' of ' + month.length : '');
+    }
+
+    const rows = (scope, arr) => arr.map((g, i) => {
+      const rec = g.type === 'recurring';
+      return `<div class="today-aim${g.done ? ' done' : ''}">
+        <div class="res-cb" onclick="tickTodayAim('${scope}',${i}${rec ? ',1' : ''})">${g.done ? '✓' : ''}</div>
+        <span class="today-aim-title"${rec ? '' : ` onclick="tickTodayAim('${scope}',${i})"`}>${escHtml(g.title)}</span>
+        ${rec ? `<span class="today-aim-count">${g.current}/${g.target}</span>
+          <button class="res-btn" onclick="tickTodayAim('${scope}',${i},-1)" aria-label="One less">−</button>
+          <button class="res-btn" onclick="tickTodayAim('${scope}',${i},1)" aria-label="One more">+</button>` : ''}
+      </div>`;
+    }).join('');
+
+    let h = '';
+    if (month.length) h += '<div class="today-aims-sub">This week</div>';
+    h += week.length
+      ? rows('week', week)
+      : '<p class="today-aims-empty">Nothing set for this week. <button class="today-aims-link" onclick="openMonthAims()">Add aims in Month</button></p>';
+    if (month.length) h += '<div class="today-aims-sub">This month</div>' + rows('month', month);
+    list.innerHTML = h;
   }
 
   function launchConfetti(){

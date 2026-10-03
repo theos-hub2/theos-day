@@ -45,12 +45,16 @@
     if (!b) return;
     const s = bookSessions(b).slice();
     const today = getTodayKey();
-    if (s.includes(today)) s.splice(s.indexOf(today), 1);
-    else { s.push(today); s.sort(); tickReadTask(); }
+    const undoing = s.includes(today);
+    if (undoing) s.splice(s.indexOf(today), 1);
+    else { s.push(today); s.sort(); }
     b.sessions = s;
     delete b.progress;
     if (!b.started) b.started = s[0] || today;
     saveBooks(books);
+    // Today's Read task is ticked while any book was read today
+    if (!undoing) tickReadTask();
+    else if (!books.some(x => bookSessions(x).includes(today))) untickReadTask();
     renderHobbies();
   }
 
@@ -59,9 +63,53 @@
     const day = getDay(key);
     const task = day.tasks.find(t => t.text.trim().toLowerCase() === 'read');
     if (task) task.done = true;
-    else day.tasks.push({ text:'Read', detail:'', done:true });
+    else day.tasks.push({ text:'Read', detail:'', done:true, fromReading:true });
     saveDay(key, day);
     renderToday();
+  }
+
+  // Undoes tickReadTask: a Read task the button added is removed again; one
+  // that was already on the list goes back to unticked.
+  function untickReadTask(){
+    const key = getTodayKey();
+    const day = getDay(key);
+    const i = day.tasks.findIndex(t => t.text.trim().toLowerCase() === 'read');
+    if (i < 0) return;
+    if (day.tasks[i].fromReading) day.tasks.splice(i, 1);
+    else day.tasks[i].done = false;
+    saveDay(key, day);
+    renderToday();
+  }
+
+  // The other direction: ticking Read on a day (Today or the calendar) counts
+  // as a reading day for the book you're on; unticking takes that day back off
+  // every book. Called from app-core after a task toggle.
+  function readTaskToggled(key, done){
+    const books = loadBooks();
+    const readThatDay = books.filter(b => bookSessions(b).includes(key));
+    if (done) {
+      if (readThatDay.length) return;          // already counted from Hobbies
+      const b = bookForReadDay(books, key);
+      if (!b) return;                           // nothing on the go to count it against
+      b.sessions = bookSessions(b).concat(key).sort();
+      delete b.progress;
+    } else {
+      if (!readThatDay.length) return;
+      readThatDay.forEach(b => {
+        b.sessions = bookSessions(b).filter(d => d !== key);
+        delete b.progress;
+      });
+    }
+    saveBooks(books);
+  }
+
+  // Which book a Read tick belongs to: of the books you're reading that had
+  // started by that day, the one you read most recently.
+  function bookForReadDay(books, key){
+    const cands = books.filter(b => b.status === 'reading' && (!b.started || b.started <= key));
+    if (!cands.length) return null;
+    const last = b => bookSessions(b).filter(d => d <= key).pop() || b.started || '';
+    return cands.sort((a, b) => last(b).localeCompare(last(a)))[0];
   }
 
   // ── ADDING ──
