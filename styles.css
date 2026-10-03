@@ -2813,3 +2813,10 @@
 .hist-area-chev { margin-left: auto; font-size: 1.1rem; color: var(--muted); transition: transform 0.15s; }
 .hist-area-chev.open { transform: rotate(90deg); }
 .hist-trend { flex-shrink: 0; }
+
+/* workout chip on the gym date row — opens the workout picker */
+.workout-chip { display: inline-flex; align-items: center; gap: 4px; }
+.workout-caret { display: inline-block; transition: transform 0.2s ease; }
+.workout-chip.open .workout-caret { transform: rotate(90deg); }
+.gym-last-date { margin-right: 8px; color: var(--muted); font-weight: 600; }
+.gym-ex-last .hist-set { margin-right: 8px; }

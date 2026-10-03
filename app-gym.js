@@ -171,6 +171,7 @@
     moreOpen: {},
     bodyOpen: false,
     optionsOpen: false,
+    chipsOpen: false,
     suggest: []
   };
 
@@ -202,12 +203,92 @@
     // snapshot the routine the first time a session is touched, so later routine
     // edits only affect sessions that haven't been opened yet
     if (!log[k].plan || log[k].workout !== gymState.workout) {
-      const routine = loadRoutine();
-      log[k].plan = JSON.parse(JSON.stringify(routine[gymState.workout] || []));
+      log[k].plan = workoutTemplate(gymState.workout, k);
+      // a routine edit wins once — the first session on or after it uses it up
+      const ed = loadRoutineEdited();
+      if (ed[gymState.workout] && k >= ed[gymState.workout]) {
+        delete ed[gymState.workout];
+        localStorage.setItem('theosRoutineEdited', JSON.stringify(ed));
+      }
     }
     log[k].workout = gymState.workout;
     mut(log[k]);
     saveGymLog(log);
+  }
+
+  // ── MIRRORING ──
+  // A new session copies the last logged session of the same workout, not the
+  // routine — you've tuned your sessions by hand, so last week is the real plan.
+  // Exception: if you edited that workout's routine since then, the routine wins
+  // once, and from then on sessions mirror each other again.
+  // Skipped exercises stay (skipping isn't removing); removed ones stay gone.
+
+  function loadRoutineEdited(){
+    try { return JSON.parse(localStorage.getItem('theosRoutineEdited') || '{}'); }
+    catch { return {}; }
+  }
+  function markRoutineEdited(w){
+    const o = loadRoutineEdited();
+    (w ? [w] : WORKOUT_ORDER).forEach(x => { o[x] = getTodayKey(); });
+    localStorage.setItem('theosRoutineEdited', JSON.stringify(o));
+  }
+
+  function lastSessionOf(workout, beforeKey){
+    const log = loadGymLog();
+    const keys = Object.keys(log).filter(k => k < beforeKey && log[k].workout === workout).sort().reverse();
+    for (const k of keys) {
+      const ex = log[k].exercises || {};
+      if (Object.values(ex).some(sets => sets.some(hasRep))) return k;
+    }
+    return null;
+  }
+
+  function knownDef(base, extra){
+    let found = null;
+    const look = l => (l || []).forEach(e => { if (!found && slug(e.name) === base) found = e; });
+    look(extra);
+    Object.values(loadRoutine()).forEach(look);
+    Object.values(DEFAULT_ROUTINE).forEach(look);
+    return found;
+  }
+
+  function workoutTemplate(workout, dateKey){
+    const fromRoutine = JSON.parse(JSON.stringify(loadRoutine()[workout] || []));
+    const lastKey = lastSessionOf(workout, dateKey);
+    if (!lastKey) return fromRoutine;
+    const edited = loadRoutineEdited()[workout];
+    if (edited && edited >= lastKey) return fromRoutine;
+
+    const prev = loadGymLog()[lastKey];
+    const exs = prev.exercises || {};
+    const baseOf = k => String(k).split('--')[0];
+    const loggedCount = base => Object.keys(exs)
+      .filter(k => baseOf(k) === base)
+      .reduce((n, k) => n + exs[k].filter(hasRep).length, 0);
+
+    const out = [];
+    const seen = new Set();
+    (prev.plan || []).forEach(e => {
+      const base = slug(e.name);
+      if (seen.has(base)) return;
+      seen.add(base);
+      const item = JSON.parse(JSON.stringify(e));
+      const n = loggedCount(base);
+      if (n) item.sets = n;
+      out.push(item);
+    });
+    // anything logged that the plan didn't list (older sessions had no plan)
+    Object.keys(exs).forEach(k => {
+      const base = baseOf(k);
+      if (seen.has(base) || !exs[k].some(hasRep)) return;
+      seen.add(base);
+      const def = knownDef(base, prev.plan);
+      const item = def ? JSON.parse(JSON.stringify(def))
+                       : { name: unslug(base), sets: 3, reps: '—' };
+      item.sets = loggedCount(base) || item.sets;
+      out.push(item);
+    });
+    return out.length ? out : fromRoutine;
   }
 
   // ── VARIANTS ──
@@ -697,7 +778,7 @@
     let base;
     if (sess && sess.plan && sess.workout === gymState.workout) base = sess.plan;
     else if (loggedKeys.length) base = [];
-    else base = routine[gymState.workout] || [];
+    else base = workoutTemplate(gymState.workout, gymState.date);
 
     const list = base.slice();
 
@@ -793,6 +874,7 @@
   function gymPickDay(dateKey){
     gymState.date = dateKey;
     gymState.workout = defaultWorkoutFor(dateKey);
+    gymState.chipsOpen = false;
     gymState.expanded = {};
     gymState.suggest = [];
     renderGym();
@@ -820,10 +902,13 @@
       if (log[gymState.date]) { delete log[gymState.date]; saveGymLog(log); }
     }
     gymState.workout = (gymState.workout === w) ? null : w;
+    gymState.chipsOpen = false;
     gymState.expanded = {};
     gymState.suggest = [];
     renderGym();
   }
+
+  function toggleWorkoutChips(){ gymState.chipsOpen = !gymState.chipsOpen; renderGym(); }
 
   // ── RENDER ──
 
@@ -881,6 +966,7 @@
     h += `<div class="gym-daybar">
             <span class="gym-daybar-date">${dObj.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})}</span>
             <div class="daybar-right">
+              ${gymState.workout ? `<button class="weight-chip has workout-chip${gymState.chipsOpen ? ' open' : ''}" onclick="toggleWorkoutChips()">${gymState.workout}<span class="workout-caret">&rsaquo;</span></button>` : ''}
               <button class="weight-chip${Object.keys(wAll).length ? ' has' : ''}" onclick="toggleBody()">${wShown}</button>
               ${isToday ? '' : '<button class="gym-today-btn" onclick="gymToday()">Today</button>'}
             </div>
@@ -888,14 +974,18 @@
 
     if (gymState.bodyOpen) h += weightBoxHTML();
 
-    h += '<div class="gym-chips">';
+    // the workout row hides behind the chip on the date row — it's easy to hit by
+    // accident and rarely needed. On a rest day it's the only thing to do, so it shows.
     const sched = scheduledFor(gymState.date);
-    WORKOUT_ORDER.forEach(w => {
-      const cls = 'gym-chip' + (w === gymState.workout ? ' active' : '') + (w === sched ? ' scheduled' : '');
-      h += `<button class="${cls}" onclick="pickWorkout('${w}')">${w}</button>`;
-    });
-    h += `<button class="gym-chip gym-rest-chip${gymState.workout ? '' : ' active'}${sched ? '' : ' scheduled'}" onclick="setRestDay()">Rest</button>`;
-    h += '</div>';
+    if (!gymState.workout || gymState.chipsOpen) {
+      h += '<div class="gym-chips">';
+      WORKOUT_ORDER.forEach(w => {
+        const cls = 'gym-chip' + (w === gymState.workout ? ' active' : '') + (w === sched ? ' scheduled' : '');
+        h += `<button class="${cls}" onclick="pickWorkout('${w}')">${w}</button>`;
+      });
+      h += `<button class="gym-chip gym-rest-chip${gymState.workout ? '' : ' active'}${sched ? '' : ' scheduled'}" onclick="setRestDay()">Rest</button>`;
+      h += '</div>';
+    }
 
     if (!gymState.workout) {
       const kept = sessionLogged(gymState.date);
@@ -946,8 +1036,8 @@
                   <div class="gym-ex-sub">${ex.sets} × ${ex.reps}${
                     muscles ? ' · ' + escHtml(muscles) : ''
                   }</div>
-                  ${logged ? '<div class="gym-ex-last gym-now">' + setsSummary(sets, mode) + '</div>'
-                           : (prev ? '<div class="gym-ex-last">last: ' + setsSummary(prev.sets, mode) + '</div>' : '')}
+                  ${(logged && !open) ? '<div class="gym-ex-last gym-now">' + formSetsHTML(sets, mode) + '</div>'
+                           : (prev ? '<div class="gym-ex-last"><span class="gym-last-date">' + shortDate(prev.date) + '</span>' + formSetsHTML(prev.sets, mode) + '</div>' : '')}
                 </div>
                 <span class="gym-ex-chev${open ? ' open' : ''}">&rsaquo;</span>
               </div>`;
@@ -2119,7 +2209,7 @@
     const routine = loadRoutine();
     let h = `<button class="gym-back" onclick="gymGo('session')">&lsaquo; Back</button>
              <div class="screen-title" style="padding-top:6px">Edit Routine</div>
-             <p class="gym-note">Changes here apply to future sessions. Days you've already opened keep the exercises they had.</p>
+             <p class="gym-note">Sessions normally copy the last one of the same workout. Edit a workout here and its next session uses this instead. Days you've already opened keep what they had.</p>
              <datalist id="exNames">${allExerciseNames().map(n => `<option value="${escHtml(n)}"></option>`).join('')}</datalist>`;
 
     WORKOUT_ORDER.forEach(w => {
@@ -2167,14 +2257,16 @@
       // always store the array — an empty one means "deliberately none"
       r[w][i].variants = value.split(',').map(s => s.trim()).filter(Boolean);
     }
-    else if (field === 'mode') { r[w][i].mode = value; saveRoutine(r); renderGym(); return; }
+    else if (field === 'mode') { r[w][i].mode = value; saveRoutine(r); markRoutineEdited(w); renderGym(); return; }
     else r[w][i][field] = value;
     saveRoutine(r);
+    markRoutineEdited(w);
   }
   function removeEx(w, i){
     const r = loadRoutine();
     r[w].splice(i,1);
     saveRoutine(r);
+    markRoutineEdited(w);
     renderGym();
   }
   function addEx(w){
@@ -2182,9 +2274,11 @@
     if (!r[w]) r[w] = [];
     r[w].push({ name:'New exercise', sets:3, reps:'8-12' });
     saveRoutine(r);
+    markRoutineEdited(w);
     renderGym();
   }
   function resetRoutine(){
     saveRoutine(JSON.parse(JSON.stringify(DEFAULT_ROUTINE)));
+    markRoutineEdited();
     renderGym();
   }
