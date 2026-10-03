@@ -870,6 +870,7 @@ el.innerHTML = content;
     document.getElementById('monthAimsLabel').textContent=
       isThisMonth?"This Month's Aims":`${months[calMonth]} Aims`;
     renderGoals('month');
+    if (typeof renderReviewSlot === 'function') renderReviewSlot();
   }
 
   function renderDayView(key){

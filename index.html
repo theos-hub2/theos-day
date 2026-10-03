@@ -29,6 +29,9 @@
 
 <div class="confetti-container" id="confetti"></div>
 
+<!-- MONTH IN REVIEW — filled by app-review.js -->
+<div class="rv-sheet" id="reviewSheet" role="dialog" aria-modal="true" aria-label="Month in review"></div>
+
 <!-- QUOTE OVERLAY -->
 <div class="quote-overlay" id="quoteOverlay">
   <div class="quote-content">
@@ -113,6 +116,7 @@
         <span class="cal-title" id="calMonthLabel"></span>
         <button class="cal-nav" onclick="changeMonth(1)" aria-label="Next month">&rsaquo;</button>
       </div>
+      <div id="reviewSlot"></div>
       <div class="cal-grid" id="calGrid"></div>
 
       <div class="dayview-slot" id="monthDaySlot"></div>
@@ -306,6 +310,7 @@
 <script src="./app-reading.js"></script>
 <script src="./app-drawing.js"></script>
 <script src="./app-gym.js"></script>
+<script src="./app-review.js"></script>
 <script src="./app-sync.js"></script>
 <script src="./app-boot.js"></script>
 </body>
