@@ -3164,3 +3164,24 @@
 .streak-history-head { margin-top: 6px; }
 .streak-count.past { color: var(--ink-mid); }
 .streak-count.past::before { content: none; }
+@media (prefers-reduced-motion: reduce) { .rv-fill, .rv-bar { transition:none; } }
+
+/* exercise order — the position an exercise was started in, shared by a pair */
+.gym-pos {
+  display: inline-block;
+  min-width: 1.15em;
+  margin-right: 7px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--green-light);
+}
+.gym-hist-place {
+  margin-left: 8px;
+  font-size: 0.74rem;
+  font-weight: 400;
+  font-style: italic;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--muted);
+}

@@ -169,6 +169,7 @@
     expanded: {},
     barOpen: {},
     moreOpen: {},
+    pairOpen: {},
     bodyOpen: false,
     optionsOpen: false,
     chipsOpen: false,
@@ -288,7 +289,8 @@
       item.sets = loggedCount(base) || item.sets;
       out.push(item);
     });
-    return out.length ? out : fromRoutine;
+    // last week's order becomes this week's plan
+    return out.length ? byOrder(out, sessionOrder(prev), e => slug(e.name)) : fromRoutine;
   }
 
   // ── VARIANTS ──
@@ -1000,7 +1002,8 @@
       return;
     }
 
-    const list = sessionPlan();
+    const order = sessionOrder(sess);
+    const list = byOrder(sessionPlan(), order, e => orderBase(e.key || slug(e.name)));
     const doneCount = list.filter(e => {
       const s = sess && sess.exercises[exKey(e)];
       return s && s.some(hasRep);
@@ -1028,11 +1031,13 @@
       const label = mixed ? pretty(ex.name) : displayName(ex, variant);
       const mode = exMode(ex);
       const muscles = exerciseMuscles(ex.name);
+      const ob = orderBase(ex.key || base);
+      const pos = order && order.pos[ob];
 
       h += `<div class="gym-ex${logged ? ' logged' : ''}">
               <div class="gym-ex-head" onclick="toggleExercise('${key}')">
                 <div class="gym-ex-main">
-                  <div class="gym-ex-name">${escHtml(label)}</div>
+                  <div class="gym-ex-name">${pos ? `<span class="gym-pos">${pos}</span>` : ''}${escHtml(label)}</div>
                   <div class="gym-ex-sub">${ex.sets} × ${ex.reps}${
                     muscles ? ' · ' + escHtml(muscles) : ''
                   }</div>
@@ -1159,6 +1164,26 @@
             h += '<div class="gym-swap"><span class="gym-swap-label">Swap for</span>' +
                  subs.map(n => `<button class="gym-swap-chip" onclick="swapExercise('${base}','${escHtml(n).replace(/'/g,"\\'")}')">${escHtml(pretty(n))}</button>`).join('') +
                  '</div>';
+          }
+          // pairing is detected on its own; these only correct it
+          if (pos) {
+            const mates = order.mates[ob];
+            if (mates.length) {
+              h += `<button class="gym-mix-toggle" onclick="unpairExercise('${ob}')">Unpair from ${
+                escHtml(joinNames(mates.map(m => baseName(sess, m))))}</button>`;
+            } else {
+              const others = Object.keys(order.pos).filter(b => b !== ob)
+                .sort((a, b) => order.pos[a] - order.pos[b]);
+              if (others.length) {
+                h += `<button class="gym-mix-toggle" onclick="togglePairPicker('${ob}')">${
+                  gymState.pairOpen[ob] ? 'Cancel pairing' : 'Pair with another exercise'}</button>`;
+                if (gymState.pairOpen[ob]) {
+                  h += '<div class="gym-swap"><span class="gym-swap-label">Alternated with</span>' +
+                       others.map(b => `<button class="gym-swap-chip" onclick="pairExercise('${ob}','${b}')">${escHtml(baseName(sess, b))}</button>`).join('') +
+                       '</div>';
+                }
+              }
+            }
           }
           if (variantsFor(ex)) {
             h += `<button class="gym-mix-toggle" onclick="toggleMix('${base}')">${
@@ -1351,6 +1376,9 @@
         if ((field === 'r' || field === 'r2') && (row.r2 === '' || row.r2 == null)) row.r2 = R.r;
       }
       row[field] = value === '' ? '' : Number(value);
+      // the moment a set first gets reps is when it was done — order and
+      // pairing are read from these stamps, never typed
+      if ((field === 'r' || field === 'r2') && value !== '' && row.t == null) row.t = Date.now();
     });
     updateGymCounter();
   }
@@ -1368,6 +1396,114 @@
 
   function removeSet(key, i){
     writeSession(s => { if (s.exercises[key]) s.exercises[key].splice(i,1); });
+    renderGym();
+  }
+
+  // ── ORDER AND PAIRS ──
+  // Nothing here is entered. Each logged set carries the time its reps went in,
+  // so an exercise's position is when its first set was logged, and two
+  // exercises whose sets alternate (A B A B) were done as a pair. A set logged
+  // late (A A B B A) is not a pair — it takes three switches, not two.
+  // A session only shows order if every logged set has a stamp; older sessions
+  // show nothing rather than a guess. Corrections live in session.links:
+  // "a|b": 1 forces a pair, 0 keeps two apart.
+
+  function orderBase(key){ return String(key).split('--')[0]; }
+  function linkKey(a, b){ return a < b ? a + '|' + b : b + '|' + a; }
+
+  function sessionOrder(sess){
+    if (!sess || !sess.exercises) return null;
+    const times = {};
+    for (const k of Object.keys(sess.exercises)) {
+      for (const st of sess.exercises[k]) {
+        if (!hasRep(st)) continue;
+        if (st.t == null) return null;
+        const b = orderBase(k);
+        (times[b] || (times[b] = [])).push(st.t);
+      }
+    }
+    const bases = Object.keys(times);
+    if (!bases.length) return null;
+    bases.forEach(b => times[b].sort((x, y) => x - y));
+    const first = b => times[b][0];
+    const links = sess.links || {};
+
+    const switches = (a, b) => {
+      const seq = times[a].map(t => [t, 0]).concat(times[b].map(t => [t, 1]))
+        .sort((x, y) => x[0] - y[0]);
+      let n = 0;
+      for (let i = 1; i < seq.length; i++) if (seq[i][1] !== seq[i-1][1]) n++;
+      return n;
+    };
+
+    const parent = {};
+    bases.forEach(b => parent[b] = b);
+    const find = b => parent[b] === b ? b : (parent[b] = find(parent[b]));
+    for (let i = 0; i < bases.length; i++) for (let j = i + 1; j < bases.length; j++) {
+      const a = bases[i], b = bases[j], l = links[linkKey(a, b)];
+      if (l === 1 || (l !== 0 && switches(a, b) >= 3)) parent[find(a)] = find(b);
+    }
+
+    const groups = {};
+    bases.forEach(b => (groups[find(b)] || (groups[find(b)] = [])).push(b));
+    const ordered = Object.values(groups)
+      .map(g => g.sort((a, b) => first(a) - first(b)))
+      .sort((a, b) => first(a[0]) - first(b[0]));
+    const pos = {}, mates = {};
+    ordered.forEach((g, i) => g.forEach(b => { pos[b] = i + 1; mates[b] = g.filter(x => x !== b); }));
+    const firstAt = {};
+    bases.forEach(b => firstAt[b] = first(b));
+    return { pos, mates, total: ordered.length, first: firstAt };
+  }
+
+  // Started exercises first, in the order they were done (a pair sits
+  // together); everything not yet started keeps its place in the plan below.
+  // Used for the session on screen and for the plan next week inherits.
+  function byOrder(list, ord, baseOf){
+    if (!ord) return list;
+    const rank = e => { const b = baseOf(e); return ord.pos[b] ? [ord.pos[b], ord.first[b]] : null; };
+    const started = list.filter(e => rank(e))
+      .sort((a, b) => { const x = rank(a), y = rank(b); return x[0] - y[0] || x[1] - y[1]; });
+    return started.concat(list.filter(e => !rank(e)));
+  }
+
+  function ordinal(n){
+    const t = n % 100;
+    if (t >= 11 && t <= 13) return n + 'th';
+    return n + ({ 1:'st', 2:'nd', 3:'rd' }[n % 10] || 'th');
+  }
+
+  // a base's name as this session knew it, else its slug read back
+  function baseName(sess, b){
+    const e = ((sess && sess.plan) || []).find(x => orderBase(x.key || slug(x.name)) === b);
+    return pretty(e ? e.name : unslug(b));
+  }
+
+  function joinNames(list){
+    return list.length < 2 ? (list[0] || '') : list.slice(0, -1).join(', ') + ' and ' + list[list.length - 1];
+  }
+
+  function unpairExercise(b){
+    const ord = sessionOrder(currentSession());
+    if (!ord || !ord.mates[b]) return;
+    writeSession(s => {
+      if (!s.links) s.links = {};
+      ord.mates[b].forEach(m => { s.links[linkKey(b, m)] = 0; });
+    });
+    renderGym();
+  }
+
+  function togglePairPicker(b){
+    gymState.pairOpen[b] = !gymState.pairOpen[b];
+    renderGym();
+  }
+
+  function pairExercise(b, other){
+    writeSession(s => {
+      if (!s.links) s.links = {};
+      s.links[linkKey(b, other)] = 1;
+    });
+    gymState.pairOpen[b] = false;
     renderGym();
   }
 
@@ -2014,9 +2150,17 @@
     })}</div>`;
 
     h += '<div class="section-label" style="margin-top:22px">Sessions</div>';
+    const log = loadGymLog();
+    const ob = orderBase(key);
     [...hist].reverse().forEach(p => {
+      const ord = sessionOrder(log[p.date]);
+      let place = '';
+      if (ord && ord.pos[ob]) {
+        place = ordinal(ord.pos[ob]) + ' of ' + ord.total;
+        if (ord.mates[ob].length) place += ', with ' + joinNames(ord.mates[ob].map(m => baseName(log[p.date], m)));
+      }
       h += `<div class="gym-hist-row">
-              <div class="gym-hist-date">${tipDate(p.date)}</div>
+              <div class="gym-hist-date">${tipDate(p.date)}${place ? `<span class="gym-hist-place">${escHtml(place)}</span>` : ''}</div>
               <div class="gym-hist-sets">${formSetsHTML(p.sets, mode)}</div>
               <div class="gym-hist-meta">${mode === 'time'
                   ? 'longest ' + fmtDur(p.longest) + ' · ' + fmtDur(p.totalTime) + ' total'
