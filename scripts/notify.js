@@ -81,7 +81,8 @@ function conditionMet(when, snap) {
   switch (when) {
     case 'incomplete': return total > 0 && done < total;
     case 'complete':   return total > 0 && done >= total;
-    case 'empty':      return total === 0;
+    // "no tasks set" means tasks, not habits — habits are always there
+    case 'empty':      return (snap.taskTotal != null ? snap.taskTotal : total) === 0;
     default:           return true;
   }
 }
