@@ -61,12 +61,12 @@
         <div class="bar-track">
           <div class="bar-fill" id="progressBar" style="width:0%"></div>
         </div>
-        <div class="completion-msg" id="completionMsg">All tasks complete — well done</div>
+        <div class="completion-msg" id="completionMsg">All done — well done</div>
       </div>
 
       <div class="section-label">Tasks</div>
 
-      <div class="add-row">
+      <div class="add-row" id="todayAddRow">
         <div class="add-row-top">
           <input type="text" id="taskInput" placeholder="Task title…"/>
           <button class="btn btn-add" onclick="addTask()">Add</button>
@@ -76,6 +76,13 @@
       </div>
 
       <div class="task-list" id="taskList"></div>
+
+      <div class="habit-head">
+        <span class="habit-title" id="habitTitle">Habits</span>
+        <span class="habit-rule"></span>
+        <button class="streak-edit-btn" id="habitEditBtn" onclick="toggleHabitEdit()">Edit</button>
+      </div>
+      <div id="habitBody"></div>
 
       <button class="aims-toggle today-aims-toggle" onclick="toggleAims('today')">
         <span class="aims-label">Aims</span>
@@ -95,7 +102,6 @@
         <div class="streak-block" id="streakBlock">
           <div class="streak-head-row">
             <div class="streak-header">Active Streaks</div>
-            <button class="streak-edit-btn" id="streakEditBtn" onclick="toggleStreakEdit()">Edit</button>
           </div>
           <div class="streak-list" id="streakList"></div>
         </div>
@@ -183,6 +189,7 @@
         <textarea id="calTaskDetail" placeholder="Optional: add details here…" rows="1"></textarea>
       </div>
       <div class="task-list" id="calTaskList"></div>
+      <div id="dayHabits"></div>
       <div id="dayAsteriskCtl"></div>
     </div>
 
@@ -306,6 +313,7 @@
 </div>
 
 <script src="./app-core.js"></script>
+<script src="./app-habits.js"></script>
 <script src="./app-hobbies.js"></script>
 <script src="./app-reading.js"></script>
 <script src="./app-drawing.js"></script>

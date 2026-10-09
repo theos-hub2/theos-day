@@ -1395,15 +1395,18 @@
       s.done = true;
     });
     const key = gymState.date;
-    const day = getDay(key);
-    let task = day.tasks.find(t => t.text.toLowerCase() === 'gym');
-    if (task) {
-      task.done = true;
-      task.detail = gymState.workout || task.detail;
-    } else {
-      day.tasks.push({ text:'Gym', detail: gymState.workout || '', done:true });
+    // with a Gym habit, tick that; otherwise the old Gym task
+    if (!(typeof markHabitFromHobby === 'function' && markHabitFromHobby('gym', key, true))) {
+      const day = getDay(key);
+      let task = day.tasks.find(t => t.text.toLowerCase() === 'gym');
+      if (task) {
+        task.done = true;
+        task.detail = gymState.workout || task.detail;
+      } else {
+        day.tasks.push({ text:'Gym', detail: gymState.workout || '', done:true });
+      }
+      saveDay(key, day);
     }
-    saveDay(key, day);
     renderToday();
     renderGym();
   }

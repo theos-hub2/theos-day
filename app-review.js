@@ -51,17 +51,17 @@ function rv1(n){ return Math.round(n * 10) / 10; }
 
 // ── WHICH MONTHS HAVE A REVIEW ──
 
-// a finished month with at least one task in it
+// a finished month with at least one task or habit in it
 function monthHasData(k){
   const data = loadData();
-  return Object.keys(data).some(d => inMonth(d, k) && data[d].tasks && data[d].tasks.length);
+  return Object.keys(data).some(d => inMonth(d, k) && dayCounts(d, data).total);
 }
 function isReviewable(k){ return k < currentMonthKey() && monthHasData(k); }
 
 // every month that has tasks, oldest first
 function dataMonths(){
   const data = loadData(), set = new Set();
-  Object.keys(data).forEach(d => { if (data[d].tasks && data[d].tasks.length) set.add(d.slice(0, 7)); });
+  Object.keys(data).forEach(d => { if (dayCounts(d, data).total) set.add(d.slice(0, 7)); });
   return [...set].sort();
 }
 
@@ -72,8 +72,8 @@ function monthDays(k, uptoDay){
   for (let d = 1; d <= n; d++){
     const key = k + '-' + String(d).padStart(2, '0');
     const day = data[key];
-    const tasks = (day && day.tasks) || [];
-    out.push({ key, d, total: tasks.length, done: tasks.filter(t => t.done).length,
+    const c = dayCounts(key, data);     // tasks plus habits due that day
+    out.push({ key, d, total: c.total, done: c.done,
                asterisk: day && day.asterisk ? (day.asterisk.reason || 'other') : null });
   }
   return out;
@@ -111,22 +111,30 @@ function longest100Run(days){
   return best;
 }
 
-// days a named task was ticked, as a Set of date keys within the month
+// days a named task or habit was ticked, as a Set of date keys within the month
 function taskDays(k, name){
   const data = loadData(), out = new Set();
+  const habit = habitNamed(name);
   Object.keys(data).forEach(d => {
-    if (!inMonth(d, k) || !data[d].tasks) return;
-    if (data[d].tasks.some(t => t.done && normalizeTaskName(t.text) === name)) out.add(d);
+    if (!inMonth(d, k)) return;
+    if (habit && dayHabitIds(data[d]).includes(habit.id)) { out.add(d); return; }
+    if (data[d].tasks && data[d].tasks.some(t => t.done && normalizeTaskName(t.text) === name)) out.add(d);
   });
   return out;
 }
 
 // how many times a habit was meant to happen this month, from its streak rule
 function plannedFor(name, k){
-  const sch = loadSchedules()[name] || { type: 'daily' };
+  const habit = habitNamed(name);
+  const sch = (habit && habit.sch) || loadSchedules()[name] || { type: 'daily' };
   const dim = daysInMonthKey(k);
   if (sch.type === 'none') return null;
   if (sch.type === 'daily') return dim;
+  if (sch.type === 'days') {
+    let n = 0;
+    for (let d = 1; d <= dim; d++) if ((sch.days || []).includes(new Date(k + '-' + String(d).padStart(2, '0') + 'T00:00:00').getDay())) n++;
+    return n;
+  }
   if (sch.type === 'biweekly') return Math.max(1, Math.round(dim / 14));
   return Math.max(1, Math.round((sch.times || 1) * dim / 7));
 }

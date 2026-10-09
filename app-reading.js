@@ -60,6 +60,8 @@
 
   function tickReadTask(){
     const key = getTodayKey();
+    // with a Read habit, tick that; otherwise the old Read task
+    if (typeof markHabitFromHobby === 'function' && markHabitFromHobby('read', key, true)) { renderToday(); return; }
     const day = getDay(key);
     const task = day.tasks.find(t => t.text.trim().toLowerCase() === 'read');
     if (task) task.done = true;
@@ -72,6 +74,7 @@
   // that was already on the list goes back to unticked.
   function untickReadTask(){
     const key = getTodayKey();
+    if (typeof markHabitFromHobby === 'function' && markHabitFromHobby('read', key, false)) { renderToday(); return; }
     const day = getDay(key);
     const i = day.tasks.findIndex(t => t.text.trim().toLowerCase() === 'read');
     if (i < 0) return;

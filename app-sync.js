@@ -23,13 +23,15 @@
     const key = getTodayKey();
     const day = data[key] || { tasks: [] };
     const tasks = day.tasks || [];
-    const done = tasks.filter(t => t.done).length;
-    const total = tasks.length;
+    // tasks plus today's due habits, so notifications and the widget match the bar
+    const counts = dayCounts(key, data);
+    const done = counts.done;
+    const total = counts.total;
     const pct = total ? Math.round((done / total) * 100) : 0;
 
     const streaks = Object.entries(calculateStreaks() || {})
-      .map(([name, s]) => ({ name, weeks: s.weeks, per: s.per, count: s.weeks, unit: 'w' }))
-      .sort((a, b) => b.weeks - a.weeks)
+      .map(([name, s]) => ({ name, n: s.n, count: s.value, unit: s.unit }))
+      .sort((a, b) => b.n - a.n)
       .slice(0, 4);
 
     const res = loadGoals('year');
@@ -42,7 +44,9 @@
       pct: pct,
       done: done,
       total: total,
-      tasks: tasks.map(t => ({ text: t.text, done: !!t.done })),
+      taskTotal: tasks.length,
+      tasks: counts.tasks.map(t => ({ text: t.text, done: !!t.done }))
+        .concat(counts.habits.map(x => ({ text: x.h.name, done: x.done }))),
       // asterisked days from today on — the notifier stays quiet on these,
       // including travel days marked in advance
       asterisks: Object.keys(data).filter(k => k >= key && data[k] && data[k].asterisk).sort(),

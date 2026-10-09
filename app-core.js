@@ -6,304 +6,7 @@
     return name.toLowerCase().trim();
   }
 
-  // Calculate streaks
-  // ── STREAKS ──
-  // Each habit carries its own schedule. Daily habits break the moment you miss
-  // a day; frequency habits are judged per week (or per fortnight), so rest days
-  // don't count against you.
-
-  function loadSchedules(){
-    try { return JSON.parse(localStorage.getItem('theosStreakSchedules') || '{}'); }
-    catch { return {}; }
-  }
-  function saveSchedules(s){ localStorage.setItem('theosStreakSchedules', JSON.stringify(s)); }
-
-  function medianOf(nums){
-    if (!nums.length) return 0;
-    const s = nums.slice().sort((a,b) => a-b);
-    const m = Math.floor(s.length/2);
-    return s.length % 2 ? s[m] : Math.round((s[m-1] + s[m]) / 2);
-  }
-
-  // weeks since a fixed Sunday, so fortnights line up consistently
-  function weekIndex(d){
-    const ws = weekStartOf(d);
-    return Math.round((ws - new Date(1970,0,4)) / (7*86400000));
-  }
-
-  // How the run is shown. The schedule decides whether a streak survives; the
-  // unit only decides how it reads. A daily habit can be counted in days, weeks
-  // or months; a weekly one can't sensibly be shown in days.
-  function defaultUnit(sch){ return sch.type === 'daily' ? 'days' : 'weeks'; }
-
-  function unitOptions(sch){
-    if (sch.type === 'none') return [];
-    return sch.type === 'daily' ? ['days','weeks','months'] : ['weeks','months'];
-  }
-
-  function streakDisplay(n, sch){
-    const unit = sch.unit || defaultUnit(sch);
-    const perNative = sch.type === 'daily' ? 1 : (sch.type === 'biweekly' ? 14 : 7);
-    const spanDays = n * perNative;
-
-    if (unit === 'months') {
-      const m = Math.floor(spanDays / 30.44);
-      if (m >= 1) return { v: m, u: 'month' };
-    }
-    if (unit === 'months' || unit === 'weeks') {
-      const wk = Math.floor(spanDays / 7);
-      if (wk >= 1) return { v: wk, u: 'week' };
-    }
-    if (sch.type === 'daily') return { v: n, u: 'day' };
-    return { v: n, u: sch.type === 'biweekly' ? 'block' : 'week' };
-  }
-
-  function scheduleLabel(sch){
-    if (sch.type === 'none') return 'not tracked';
-    if (sch.type === 'daily') return 'every day';
-    if (sch.type === 'biweekly') return 'once every 2 weeks';
-    return sch.times === 1 ? 'once a week' : sch.times + '× per week';
-  }
-
-  function scheduleCode(sch){
-    if (sch.type === 'none') return 'none';
-    if (sch.type === 'daily') return 'daily';
-    if (sch.type === 'biweekly') return 'b1';
-    return 'w' + sch.times;
-  }
-
-  function codeToSchedule(code){
-    if (code === 'none') return { type:'none' };
-    if (code === 'daily') return { type:'daily' };
-    if (code === 'b1') return { type:'biweekly', times:1 };
-    return { type:'weekly', times: parseInt(code.slice(1)) || 1 };
-  }
-
-  // Everything starts as a daily streak. Guessing from history was clever but
-  // opaque — you couldn't tell what the app had decided or why.
-  function inferSchedule(){ return { type: 'daily' }; }
-
-  // every completed task, bucketed by day and by week
-  function streakData(){
-    const data = loadData();
-    const map = {};
-    Object.entries(data).forEach(([dateKey, day]) => {
-      if (!day.tasks) return;
-      const wk = ymd(weekStartOf(new Date(dateKey + 'T00:00:00')));
-      day.tasks.forEach(t => {
-        if (!t.done) return;
-        const norm = normalizeTaskName(t.text);
-        if (!map[norm]) map[norm] = { display: t.text, days: new Set(), weeks: {}, total: 0 };
-        map[norm].days.add(dateKey);
-        map[norm].weeks[wk] = (map[norm].weeks[wk] || 0) + 1;
-        map[norm].total++;
-      });
-    });
-    return map;
-  }
-
-  function scheduleFor(norm, info){
-    return loadSchedules()[norm] || inferSchedule();
-  }
-
-  function runLength(info, sch){
-    const today = getTodayKey();
-
-    if (sch.type === 'daily') {
-      const d = new Date();
-      let n = 0, guard = 0;
-      while (guard++ < 2000) {
-        const k = ymd(d);
-        if (info.days.has(k)) n++;
-        else if (k === today) { /* today isn't a miss yet */ }
-        else break;
-        d.setDate(d.getDate() - 1);
-      }
-      return n;
-    }
-
-    const size = sch.type === 'biweekly' ? 2 : 1;
-    const need = sch.times || 1;
-    const perPeriod = {};
-    Object.entries(info.weeks).forEach(([wk, c]) => {
-      const idx = Math.floor(weekIndex(new Date(wk + 'T00:00:00')) / size);
-      perPeriod[idx] = (perPeriod[idx] || 0) + c;
-    });
-
-    const current = Math.floor(weekIndex(new Date()) / size);
-    let p = current, n = 0, guard = 0;
-    while (guard++ < 520) {
-      const c = perPeriod[p] || 0;
-      if (c >= need) n++;
-      else if (p === current) { /* period still in progress */ }
-      else break;
-      p--;
-    }
-    return n;
-  }
-
-  function calculateStreaks(){
-    const map = streakData();
-    const out = {};
-    Object.entries(map).forEach(([norm, info]) => {
-      const sch = scheduleFor(norm, info);
-      if (sch.type === 'none') return;          // deliberately not tracked
-      const n = runLength(info, sch);
-      const min = sch.type === 'daily' ? 3 : 2;
-      if (n >= min) {
-        const disp = streakDisplay(n, sch);
-        out[info.display] = { n, sch, label: scheduleLabel(sch), value: disp.v, unit: disp.u };
-      }
-    });
-    return out;
-  }
-
-  let streakEditMode = false;
-
-  function toggleStreakEdit(){
-    streakEditMode = !streakEditMode;
-    streakEditExpanded = false;
-    streakEditQuery = '';
-    renderStreaks();
-  }
-
-  function setSchedule(norm, code){
-    const s = loadSchedules();
-    const prevUnit = s[norm] && s[norm].unit;
-    const sch = codeToSchedule(code);
-    if (prevUnit && unitOptions(sch).includes(prevUnit)) sch.unit = prevUnit;
-    s[norm] = sch;
-    saveSchedules(s);
-    if (streakEditMode) renderStreakRows(); else renderStreaks();
-  }
-
-  function setStreakUnit(norm, unit){
-    const s = loadSchedules();
-    if (!s[norm]) {
-      const map = streakData();
-      s[norm] = scheduleFor(norm, map[norm] || { weeks:{} });
-    }
-    s[norm].unit = unit;
-    saveSchedules(s);
-    if (streakEditMode) renderStreakRows(); else renderStreaks();
-  }
-
-  function renderStreaks(){
-    const list = document.getElementById('streakList');
-    if (!list) return;
-    const btn = document.getElementById('streakEditBtn');
-    if (btn) btn.textContent = streakEditMode ? 'Done' : 'Edit';
-
-    if (streakEditMode) return renderStreakEditor(list);
-
-    const streaks = calculateStreaks();
-    const entries = Object.entries(streaks).sort((a,b) => b[1].n - a[1].n);
-    list.innerHTML = '';
-
-    if (!entries.length) {
-      list.innerHTML = '<div class="streak-empty">No streaks going yet — tap Edit to set how often each habit should happen</div>';
-      return;
-    }
-
-    entries.forEach(([name, s]) => {
-      const div = document.createElement('div');
-      div.className = 'streak-item';
-      div.innerHTML = `
-        <span class="streak-name">${escHtml(name)}<span class="streak-sched">${s.label}</span></span>
-        <span class="streak-count">${s.value} ${s.value === 1 ? s.unit : s.unit + 's'}</span>
-      `;
-      list.appendChild(div);
-    });
-  }
-
-  let streakEditExpanded = false;
-  let streakEditQuery = '';
-
-  const STREAK_OPTIONS = [
-    ['daily','Every day'],
-    ['w6','6× per week'], ['w5','5× per week'], ['w4','4× per week'],
-    ['w3','3× per week'], ['w2','2× per week'], ['w1','Once a week'],
-    ['b1','Once every 2 weeks'],
-    ['none','No streak']
-  ];
-
-  const STREAK_MIN_COUNT = 3;   // done fewer times than this? not a habit yet
-
-  function streakEditable(){
-    const map = streakData();
-    return Object.entries(map)
-      .filter(([, info]) => info.total >= STREAK_MIN_COUNT)
-      .sort((a, b) => b[1].total - a[1].total);
-  }
-
-  function renderStreakEditor(list){
-    list.innerHTML = `
-      <input type="text" class="streak-search" id="streakSearch" placeholder="Search tasks…"
-             value="${escHtml(streakEditQuery)}" autocomplete="off"
-             oninput="streakSearch(this.value)"/>
-      <div id="streakEditRows"></div>`;
-    renderStreakRows();
-  }
-
-  // rows live in their own container so typing in the search box doesn't
-  // rebuild — and steal focus from — the input itself
-  function renderStreakRows(){
-    const box = document.getElementById('streakEditRows');
-    if (!box) return;
-
-    const all = streakEditable();
-    const q = streakEditQuery.trim().toLowerCase();
-    const matching = q ? all.filter(([, info]) => info.display.toLowerCase().includes(q)) : all;
-
-    if (!all.length) {
-      box.innerHTML = `<div class="streak-empty">Nothing done ${STREAK_MIN_COUNT} times yet</div>`;
-      return;
-    }
-    if (!matching.length) {
-      box.innerHTML = '<div class="streak-empty">No tasks match that</div>';
-      return;
-    }
-
-    const showAll = streakEditExpanded || !!q;
-    const shown = showAll ? matching : matching.slice(0, 7);
-    const hidden = matching.length - shown.length;
-
-    box.innerHTML = shown.map(([norm, info]) => {
-      const sch = scheduleFor(norm, info);
-      const code = scheduleCode(sch);
-      const median = medianOf(Object.values(info.weeks));
-      const units = unitOptions(sch);
-      return `
-        <div class="streak-edit-row">
-          <div class="streak-edit-top">
-            <span class="streak-edit-name">${escHtml(info.display)}</span>
-            <span class="streak-edit-obs">${info.total}× · ~${median}/wk</span>
-          </div>
-          <select class="streak-select" onchange="setSchedule('${norm.replace(/'/g,"\\'")}',this.value)">
-            ${STREAK_OPTIONS.map(([v,l]) => `<option value="${v}"${v === code ? ' selected' : ''}>${l}</option>`).join('')}
-          </select>
-          ${units.length ? `<div class="streak-unit-row">
-            <span class="streak-unit-label">Count in</span>
-            ${units.map(u => `<button class="streak-unit${(sch.unit || defaultUnit(sch)) === u ? ' active' : ''}"
-              onclick="setStreakUnit('${norm.replace(/'/g,"\\'")}','${u}')">${u[0].toUpperCase() + u.slice(1)}</button>`).join('')}
-          </div>` : ''}
-        </div>`;
-    }).join('');
-
-    if (hidden > 0) {
-      box.innerHTML += `<button class="streak-more" onclick="expandStreakEditor()">See ${hidden} more</button>`;
-    }
-  }
-
-  function streakSearch(v){
-    streakEditQuery = v;
-    renderStreakRows();
-  }
-
-  function expandStreakEditor(){
-    streakEditExpanded = true;
-    renderStreakRows();
-  }
+  // Streaks and habits live in app-habits.js.
 
   const quotes = [
     { text: "The only way to do great work is to love what you do.", author: "Steve Jobs" },
@@ -463,8 +166,11 @@
       return a.done ? 1 : -1;
     });
     
+    // A day with nothing scheduled stays small: one line until you need it.
+    const addRow = document.getElementById('todayAddRow');
+    if (addRow) addRow.style.display = (sortedTasks.length || taskAddOpen) ? '' : 'none';
     if(sortedTasks.length===0){
-      list.innerHTML=`<div class="empty-state"><span class="e-icon">○</span><p>No tasks yet — add one above</p></div>`;
+      list.innerHTML = taskAddOpen ? '' : `<button class="task-add-line" onclick="openTaskAdd()">+ Add task</button>`;
     } else {
       sortedTasks.forEach((t)=>{
         const i = t.originalIndex;
@@ -514,11 +220,22 @@
       });
     }
    updateProgress(day);
+    if (typeof renderHabits === 'function') renderHabits();
     renderStreaks();
   }
 
+  let taskAddOpen = false;
+  function openTaskAdd(){
+    taskAddOpen = true;
+    document.getElementById('todayAddRow').style.display = '';
+    document.getElementById('taskList').innerHTML = '';
+    document.getElementById('taskInput').focus();
+  }
+
+  // tasks plus the habits due today (see dayCounts in app-habits.js)
   function updateProgress(day){
-    const total=day.tasks.length,done=day.tasks.filter(t=>t.done).length;
+    const c = dayCounts(todayKey);
+    const total=c.total,done=c.done;
     const pct=total===0?0:Math.round((done/total)*100);
     const barEl = document.getElementById('progressBar');
     const pctEl = document.getElementById('pctLabel');
@@ -581,8 +298,10 @@
         counts.get(norm).n++;
       });
     });
+    // habits have their own list now, so they're never suggested as tasks
     return [...counts.values()]
       .filter(x => x.n >= STREAK_MIN_COUNT)
+      .filter(x => !(typeof activeHabitNamed === 'function' && activeHabitNamed(x.name)))
       .sort((a,b) => b.n - a.n).map(x => x.name);
   }
 
@@ -736,6 +455,16 @@
     const det=document.getElementById('taskDetail');
     const t=inp.value.trim();
     if(!t)return;
+    // typing a habit's name ticks the habit instead of adding a duplicate task
+    const habit = typeof activeHabitNamed === 'function' ? activeHabitNamed(t) : null;
+    if (habit) {
+      setHabitTick(habit.id, todayKey, true);
+      inp.value=''; det.value='';
+      document.getElementById('autocompleteDropdown').style.display = 'none';
+      currentSuggestions = [];
+      renderToday();
+      return;
+    }
     const day=getDay(todayKey);
     day.tasks.push({text:t,detail:det.value.trim(),done:false});
     saveDay(todayKey,day);
@@ -811,7 +540,8 @@
       el.className='cal-day';
       if(d===today.getDate()&&calMonth===today.getMonth()&&calYear===today.getFullYear())el.classList.add('today');
       if(key===selKey)el.classList.add('selected');
-      if(data[key]&&data[key].tasks.length>0)el.classList.add('has-tasks');
+      const counts = dayCounts(key, data);
+      if(counts.total>0)el.classList.add('has-tasks');
 const dayData = data[key];
 let content = `<div class="cal-day-number">${d}</div>`;
 if (dayData && dayData.asterisk) {
@@ -819,9 +549,9 @@ if (dayData && dayData.asterisk) {
   content += `<span class="cal-asterisk">✱</span>`;
 }
 
-if (dayData && dayData.tasks && dayData.tasks.length > 0) {
-  const total = dayData.tasks.length;
-  const done = dayData.tasks.filter(t => t.done).length;
+if (counts.total > 0) {
+  const total = counts.total;
+  const done = counts.done;
   const pct = Math.round((done / total) * 100);
   const color = getProgressColor(pct);
   
@@ -941,6 +671,7 @@ el.innerHTML = content;
         }
       });
     }
+    if (typeof renderDayHabits === 'function') renderDayHabits(key);
     renderAsterisk(key);
   }
 

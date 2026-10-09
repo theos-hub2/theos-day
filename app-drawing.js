@@ -55,6 +55,8 @@ function fmtHours(mins){
 
 // logging a session counts as having drawn that day
 function tickDrawTask(dateKey){
+  // with a Draw habit, tick that; otherwise the old Draw task
+  if (typeof markHabitFromHobby === 'function' && markHabitFromHobby('draw', dateKey, true)) { renderToday(); return; }
   const day = getDay(dateKey);
   const task = day.tasks.find(t => t.text.trim().toLowerCase() === 'draw');
   if (task) task.done = true;
