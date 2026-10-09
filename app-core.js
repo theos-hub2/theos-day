@@ -155,6 +155,7 @@
 
   function renderToday(){
     renderTodayAsterisk();
+    if (typeof renderTodayTrip === 'function') renderTodayTrip();
     const day=getDay(todayKey);
     const list=document.getElementById('taskList');
     list.innerHTML='';
@@ -529,6 +530,7 @@
     });
     const fd=new Date(calYear,calMonth,1).getDay(),dim=new Date(calYear,calMonth+1,0).getDate();
     const data=loadData(),today=new Date();
+    const trips = typeof tripsSorted === 'function' ? tripsSorted() : [];
     for(let i=0;i<fd;i++){
       const e=document.createElement('div');
       e.className='cal-day empty';
@@ -544,6 +546,8 @@
       if(counts.total>0)el.classList.add('has-tasks');
 const dayData = data[key];
 let content = `<div class="cal-day-number">${d}</div>`;
+const trip = trips.length ? tripOn(key, trips) : null;
+if (trip) el.classList.add('trip', 'trip-' + tripColor(trip, trips));
 if (dayData && dayData.asterisk) {
   el.classList.add('asterisk');
   content += `<span class="cal-asterisk">✱</span>`;
@@ -601,6 +605,7 @@ el.innerHTML = content;
       isThisMonth?"This Month's Aims":`${months[calMonth]} Aims`;
     renderGoals('month');
     if (typeof renderReviewSlot === 'function') renderReviewSlot();
+    if (typeof renderTripKey === 'function') { renderTripKey(); renderTripSlot(); }
   }
 
   function renderDayView(key){
@@ -676,17 +681,19 @@ el.innerHTML = content;
   }
 
   // ── ASTERISK ──
-  // A day that didn't count — sick, travelling, an emergency. It shades the
+  // A day that didn't count — sick, or an emergency. (Travel moved to trips,
+  // app-travel.js; old travel asterisks keep their label.) It shades the
   // calendar and explains the gap. It deliberately does NOT protect streaks:
   // the break stays, the asterisk is context. Stored on the day itself
   // (theosDayData[key].asterisk = {reason, note}) so export and sync carry it.
   // Used a few times a year, so it lives at the bottom of the day view only.
-  const ASTERISK_REASONS = [['sick','Sick'],['travel','Travel'],['emergency','Emergency']];
+  const ASTERISK_REASONS = [['sick','Sick'],['emergency','Emergency']];
+  const ASTERISK_LABELS = { sick: 'Sick', travel: 'Travel', emergency: 'Emergency' };
   let asteriskEditing = null;   // key of the day whose editor is open
   let asteriskDraft = null;
 
   function asteriskOf(key){ const d = loadData()[key]; return (d && d.asterisk) || null; }
-  function asteriskLabel(a){ const r = ASTERISK_REASONS.find(x => x[0] === a.reason); return r ? r[1] : 'Asterisk'; }
+  function asteriskLabel(a){ return ASTERISK_LABELS[a.reason] || 'Asterisk'; }
 
   function renderAsterisk(key){
     const banner = document.getElementById('dayAsteriskBanner');

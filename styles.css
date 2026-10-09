@@ -3091,3 +3091,76 @@
   text-transform: uppercase;
   color: var(--green);
 }
+
+/* ── TRIPS ── */
+/* amber / blue / purple, by date order; red and green are taken */
+.trip-bg-amber  { background: #c48a1e; }
+.trip-bg-blue   { background: #3d6fa8; }
+.trip-bg-purple { background: #7b5aa6; }
+.trip-text-amber  { color: #9a6a12; }
+.trip-text-blue   { color: #33608f; }
+.trip-text-purple { color: #694b90; }
+
+.cal-day.trip-amber  { background: rgba(196,138,30,0.14); border-color: rgba(196,138,30,0.32); }
+.cal-day.trip-blue   { background: rgba(61,111,168,0.12); border-color: rgba(61,111,168,0.30); }
+.cal-day.trip-purple { background: rgba(123,90,166,0.12); border-color: rgba(123,90,166,0.30); }
+.cal-day.trip-amber.in-week  { background: rgba(196,138,30,0.20); }
+.cal-day.trip-blue.in-week   { background: rgba(61,111,168,0.18); }
+.cal-day.trip-purple.in-week { background: rgba(123,90,166,0.18); }
+/* a sick day on a trip still reads as the asterisk */
+.cal-day.trip.asterisk { background: rgba(192,80,64,0.10); border-color: rgba(192,80,64,0.22); }
+.cal-day.trip.today { border-color: var(--green); }
+.cal-day.trip.selected { background: var(--green); border-color: var(--green); }
+
+.trip-swatch { display: inline-block; width: 9px; height: 9px; border-radius: 2px; flex-shrink: 0; }
+
+.trip-key { display: none; flex-wrap: wrap; gap: 4px 14px; margin: 8px 2px 0; }
+.trip-key-item {
+  display: flex; align-items: center; gap: 6px;
+  background: none; border: none; padding: 4px 0; cursor: pointer;
+  font-family: 'EB Garamond', serif; font-size: 0.8rem; font-weight: 600; color: var(--ink-mid);
+}
+
+.today-trip {
+  display: none; align-items: center; gap: 7px;
+  font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+  margin-top: 5px;
+}
+
+.trip-slot { margin-top: 18px; padding-top: 14px; border-top: 1.5px solid var(--border); }
+.trip-start-btn {
+  width: 100%; padding: 11px; border: 1.5px solid var(--border); background: transparent;
+  color: var(--green); font-family: 'EB Garamond', serif; font-size: 0.78rem; font-weight: 600;
+  letter-spacing: 0.08em; text-transform: uppercase; border-radius: 3px; cursor: pointer;
+}
+.trip-editor { background: var(--off-white); border: 1.5px solid var(--border); border-radius: 4px; padding: 16px; }
+.trip-editor-label, .trip-habits-label {
+  font-size: 0.72rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--green); margin-bottom: 10px;
+}
+.trip-habits-label { margin-top: 16px; }
+.trip-input {
+  width: 100%; padding: 10px 12px; font-family: 'EB Garamond', serif; font-size: 16px;
+  background: var(--white); border: 1.5px solid var(--border); color: var(--ink); border-radius: 3px; outline: none;
+}
+.trip-dates { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+.trip-date { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.trip-date span { font-size: 0.68rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.trip-date input {
+  width: 100%; min-width: 0; min-height: 42px; padding: 8px 10px; font-family: 'EB Garamond', serif; font-size: 16px;
+  background: var(--white); border: 1.5px solid var(--border); color: var(--ink); border-radius: 3px;
+  -webkit-appearance: none; appearance: none;
+}
+.trip-hint { font-size: 0.75rem; color: var(--muted); margin-top: 8px; line-height: 1.4; }
+.trip-error { font-size: 0.85rem; color: #b5503f; font-weight: 600; margin-top: 12px; }
+.trip-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+.trip-actions button { font-family: 'EB Garamond', serif; font-size: 0.85rem; padding: 8px 14px; border-radius: 2px; cursor: pointer; }
+.trip-cancel { background: none; border: 1.5px solid var(--border); color: var(--ink-mid); }
+.trip-save { background: var(--green); border: 1.5px solid var(--green); color: var(--white); }
+.trip-delete { background: none; border: none; color: #b5503f; margin-right: auto; padding-left: 0 !important; }
+
+/* streak history */
+#streakHistory { margin-top: 12px; }
+.streak-history-head { margin-top: 6px; }
+.streak-count.past { color: var(--ink-mid); }
+.streak-count.past::before { content: none; }

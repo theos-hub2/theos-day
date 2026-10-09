@@ -74,6 +74,10 @@ function habitDue(h, key){
   if (s.type === 'days') return (s.days || []).includes(new Date(key + 'T00:00:00').getDay());
   return false;
 }
+// Due, and not paused by a trip on that day. This decides the day's bar.
+// Streaks use habitDue alone: a trip never freezes or protects a streak.
+function habitPaused(h, key){ return typeof habitPausedOn === 'function' && habitPausedOn(h, key); }
+function habitExpected(h, key){ return habitDue(h, key) && !habitPaused(h, key); }
 function habitInRange(h, key){ return key >= (h.since || '0000') && (!h.ended || key < h.ended); }
 
 function scheduleLabel(sch){
@@ -153,7 +157,7 @@ function dayCounts(key, data){
     allHabits().forEach(h => {
       const ticked = ticks.includes(h.id);
       const inRange = habitInRange(h, key);
-      if (!ticked && !(inRange && habitDue(h, key))) return;
+      if (!ticked && !(inRange && habitExpected(h, key))) return;
       habits.push({ h, done: ticked || (inRange && legacyTaskDone(h, day)) });
     });
   }
@@ -257,6 +261,7 @@ function calculateStreaks(){
 function renderStreaks(){
   const list = document.getElementById('streakList');
   if (!list) return;
+  renderStreakHistory();
   const entries = Object.entries(calculateStreaks()).sort((a,b) => b[1].n - a[1].n);
   if (!entries.length) {
     list.innerHTML = '<div class="streak-empty">No streaks going yet. A daily habit shows here after 3 days in a row.</div>';
@@ -267,6 +272,103 @@ function renderStreaks(){
       <span class="streak-name">${escHtml(name)}<span class="streak-sched">${s.label}</span></span>
       <span class="streak-count">${s.value} ${s.value === 1 ? s.unit : s.unit + 's'}</span>
     </div>`).join('');
+}
+
+// ── STREAK HISTORY ──
+// Past runs, worked out from the ticks each time, so it covers everything
+// already recorded and can't drift from it. Only runs worth remembering:
+// 7+ for day-based habits, 3+ weeks for weekly ones. The run still going is
+// in Active Streaks, not here. If a run broke during a trip, the trip is named.
+
+let streakHistoryOpen = false;
+
+function periodStartKey(p, size){ return ymd(new Date(1970, 0, 4 + p * size * 7)); }
+
+function pastRuns(h, data){
+  const sch = habitSch(h);
+  const days = habitDays(h, data);
+  if (!days.size) return [];
+  const today = getTodayKey(), yest = yesterdayKey();
+  const stop = h.ended ? addDaysKey(h.ended, -1) : today;
+  const sorted = [...days].sort();
+  const runs = [];
+
+  if (!isFlexible(sch)) {
+    if (sch.type === 'days' && !(sch.days || []).length) return [];
+    let n = 0, start = null, last = null;
+    for (let k = sorted[0]; k <= stop; k = addDaysKey(k, 1)) {
+      if (!habitDue(h, k)) continue;
+      if (days.has(k)) { if (!n) start = k; n++; last = k; }
+      else if (!h.ended && (k === today || k === yest)) { /* not reported yet */ }
+      else { if (n >= 7) runs.push({ h, n, start, end: last, broke: [k] }); n = 0; }
+    }
+    if (h.ended && n >= 7) runs.push({ h, n, start, end: last, broke: [] });
+    return runs;
+  }
+
+  const size = sch.type === 'biweekly' ? 2 : 1;
+  const need = sch.times || 1;
+  const idxOf = k => Math.floor(weekIndex(new Date(k + 'T00:00:00')) / size);
+  const per = {};
+  sorted.forEach(k => { (per[idxOf(k)] || (per[idxOf(k)] = [])).push(k); });
+  const current = idxOf(stop), yIdx = idxOf(yest);
+  let n = 0, start = null, last = null;
+  for (let p = idxOf(sorted[0]); p <= current; p++) {
+    const ticks = per[p] || [];
+    if (ticks.length >= need) { if (!n) start = ticks[0]; n++; last = ticks[ticks.length - 1]; }
+    else if (!h.ended && (p === current || p === yIdx)) { /* still open */ }
+    else {
+      if (n * size >= 3) {
+        const from = periodStartKey(p, size), broke = [];
+        for (let i = 0; i < size * 7; i++) broke.push(addDaysKey(from, i));
+        runs.push({ h, n, start, end: last, broke });
+      }
+      n = 0;
+    }
+  }
+  if (h.ended && n * size >= 3) runs.push({ h, n, start, end: last, broke: [] });
+  return runs;
+}
+
+function streakHistory(){
+  const data = loadData();
+  const trips = typeof tripsSorted === 'function' ? tripsSorted() : [];
+  const out = [];
+  allHabits().forEach(h => pastRuns(h, data).forEach(r => {
+    const t = trips.length ? r.broke.map(k => tripOn(k, trips)).find(Boolean) : null;
+    out.push(Object.assign(r, { trip: t || null, color: t ? tripColor(t, trips) : null }));
+  }));
+  return out.sort((a, b) => a.end < b.end ? 1 : a.end > b.end ? -1 : b.n - a.n);
+}
+
+function renderStreakHistory(){
+  const box = document.getElementById('streakHistory');
+  if (!box) return;
+  if (!streakHistoryOpen) {
+    box.innerHTML = `<button class="streak-more" onclick="toggleStreakHistory()">Streak history</button>`;
+    return;
+  }
+  const runs = streakHistory();
+  const thisYear = getTodayKey().slice(0, 4);
+  const fmt = k => new Date(k + 'T00:00:00').toLocaleDateString('en-US',
+    Object.assign({ month: 'short', day: 'numeric' }, k.slice(0, 4) !== thisYear ? { year: 'numeric' } : {}));
+  const rows = runs.map(r => {
+    const sch = habitSch(r.h);
+    const disp = streakDisplay(r.n, sch);
+    const trip = r.trip ? ` · <span class="trip-text-${r.color}">broke in ${escHtml(r.trip.place)}</span>` : '';
+    return `<div class="streak-item">
+      <span class="streak-name">${escHtml(r.h.name)}<span class="streak-sched">${fmt(r.start)} – ${fmt(r.end)}${trip}</span></span>
+      <span class="streak-count past">${disp.v} ${disp.v === 1 ? disp.u : disp.u + 's'}</span>
+    </div>`;
+  }).join('');
+  box.innerHTML = `<div class="streak-header streak-history-head">Streak history</div>
+    <div class="streak-list">${rows || '<div class="streak-empty">No finished streaks yet. Runs of 7+ days, or 3+ weeks for weekly habits, show here once they end.</div>'}</div>
+    <button class="streak-more" onclick="toggleStreakHistory()">Hide history</button>`;
+}
+
+function toggleStreakHistory(){
+  streakHistoryOpen = !streakHistoryOpen;
+  renderStreakHistory();
 }
 
 // ── TODAY'S HABIT LIST ──
@@ -294,7 +396,7 @@ function habitsForDay(key, data){
 
 function unmarkedOn(key, data){
   data = data || loadData();
-  return allHabits().filter(h => habitInRange(h, key) && habitDue(h, key) && !habitDoneOn(h, key, data)).length;
+  return allHabits().filter(h => habitInRange(h, key) && habitExpected(h, key) && !habitDoneOn(h, key, data)).length;
 }
 
 function habitRowsHtml(key, data, handler){
@@ -302,15 +404,18 @@ function habitRowsHtml(key, data, handler){
     const sch = habitSch(h);
     const done = habitDoneOn(h, key, data);
     const due = habitDue(h, key);
+    const paused = !done && habitPaused(h, key);
     let meta = '', metaCls = '';
-    if (isFlexible(sch)) {
+    if (paused) {
+      meta = 'paused';
+    } else if (isFlexible(sch)) {
       const c = periodCount(h, key, data), need = sch.times || 1;
       meta = `${c}/${need}`;
       if (c >= need) metaCls = ' met';
     } else if (!due) {
       meta = 'rest';
     }
-    const off = !due && !isFlexible(sch) && !done;
+    const off = paused || (!due && !isFlexible(sch) && !done);
     // a compact chip: filled green when done, no separate checkbox
     return `<button class="habit-row${done ? ' done' : ''}${off ? ' off' : ''}" data-hid="${escHtml(h.id)}" onclick="${handler}(this)">
       <span class="habit-name">${h.kind === 'avoid' ? '<span class="habit-avoid" aria-label="avoid">⊘</span>' : ''}${escHtml(h.name)}</span>
