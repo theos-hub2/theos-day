@@ -305,14 +305,14 @@ function habitRowsHtml(key, data, handler){
     let meta = '', metaCls = '';
     if (isFlexible(sch)) {
       const c = periodCount(h, key, data), need = sch.times || 1;
-      meta = `${c}/${need} this ${sch.type === 'biweekly' ? 'fortnight' : 'week'}`;
+      meta = `${c}/${need}`;
       if (c >= need) metaCls = ' met';
     } else if (!due) {
-      meta = 'rest day';
+      meta = 'rest';
     }
     const off = !due && !isFlexible(sch) && !done;
+    // a compact chip: filled green when done, no separate checkbox
     return `<button class="habit-row${done ? ' done' : ''}${off ? ' off' : ''}" data-hid="${escHtml(h.id)}" onclick="${handler}(this)">
-      <span class="habit-cb">${done ? '✓' : ''}</span>
       <span class="habit-name">${h.kind === 'avoid' ? '<span class="habit-avoid" aria-label="avoid">⊘</span>' : ''}${escHtml(h.name)}</span>
       ${meta ? `<span class="habit-meta${metaCls}">${meta}</span>` : ''}
     </button>`;
