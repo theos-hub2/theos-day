@@ -154,7 +154,7 @@ function parseRecipeLines(text){
   (text || '').split('\n').map(l => l.trim()).filter(Boolean).forEach(line => {
     if (/:$/.test(line) && line.length <= 40) {
       if (cur.title || cur.items.length) groups.push(cur);
-      cur = { title: line.slice(0, -1).trim(), items:[] };
+      cur = { title: expandGroupTitle(line.slice(0, -1).trim()), items:[] };
       return;
     }
     const clean = line.replace(/^([-•*·]|\d+[.)]|step\s*\d+[:.)]?)\s*/i, '').trim();
@@ -165,6 +165,18 @@ function parseRecipeLines(text){
 }
 function recipeItemCount(text){
   return parseRecipeLines(text).reduce((n, g) => n + g.items.length, 0);
+}
+
+// ingredients under "Spices:" or "Pantry:" last for months — they get no +
+// and Add all skips them. You add them by hand when they run low.
+// "Chicken spices:" and "Sauce pantry:" count too, so each part keeps its own.
+function isStapleGroup(title){ return /(^|\s)(spices|pantry)$/i.test((title || '').trim()); }
+
+// "sp:" is shorthand — "sp:" shows as Spices, "chicken sp:" as Chicken spices
+function expandGroupTitle(t){
+  if (!/(^|\s)sp$/i.test(t)) return t;
+  const out = t.replace(/sp$/i, 'spices');
+  return out.charAt(0).toUpperCase() + out.slice(1);
 }
 
 function onGroceryList(text){
@@ -446,7 +458,7 @@ function detailsEditHTML(d, tags){
 
 const RECIPE_COPY = {
   ingredients: { title:'Ingredients', add:'+ Add ingredients',
-                 hint:'One per line. A line ending in a colon, like "Sauce:", starts a group.' },
+                 hint:'One per line. A line ending in a colon, like "Sauce:", starts a group. Put long-lasting things under "Spices:" (or just "sp:") or "Pantry:" and they stay off the grocery list — "Chicken sp:" works too.' },
   steps:       { title:'Steps', add:'+ Add steps',
                  hint:'One step per line. For a meal with parts, put "Rice:", "Beans:" and so on above each part — cook mode gives each its own box.' }
 };
@@ -471,11 +483,12 @@ function recipeSectionHTML(d, field){
   }
 
   if (field === 'ingredients') {
-    const all = groups.flatMap(g => g.items);
+    const all = groups.filter(g => !isStapleGroup(g.title)).flatMap(g => g.items);
     const allOn = all.every(it => onGroceryList(it.text));
     h += groups.map(g => `
       ${g.title ? `<div class="cook-group-title">${escHtml(g.title)}</div>` : ''}
       ${g.items.map(it => {
+        if (isStapleGroup(g.title)) return `<div class="cook-ing"><span>${escHtml(it.text)}</span></div>`;
         const on = onGroceryList(it.text);
         return `<div class="cook-ing">
           <span>${escHtml(it.text)}</span>
@@ -484,7 +497,7 @@ function recipeSectionHTML(d, field){
         </div>`;
       }).join('')}`).join('');
     h += `<div class="cook-recipe-actions">
-      <button class="bar-chip${allOn ? ' active' : ''}" onclick="cookAddAllIngredients()">${allOn ? 'All on the list' : 'Add all to groceries'}</button>
+      ${all.length ? `<button class="bar-chip${allOn ? ' active' : ''}" onclick="cookAddAllIngredients()">${allOn ? 'All on the list' : 'Add all to groceries'}</button>` : ''}
       <button class="bar-chip" onclick="cookEdit('ingredients')">Edit</button>
     </div>`;
   } else {
@@ -638,7 +651,9 @@ function cookDeleteDish(){
 }
 
 // ingredients → groceries
-function ingredientItems(d){ return parseRecipeLines(d.ingredients).flatMap(g => g.items); }
+function ingredientItems(d){
+  return parseRecipeLines(d.ingredients).filter(g => !isStapleGroup(g.title)).flatMap(g => g.items);
+}
 
 function addToGroceries(text, dish){
   if (onGroceryList(text)) return false;
