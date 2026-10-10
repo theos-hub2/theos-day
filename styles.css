@@ -3198,3 +3198,65 @@
   outline: none; resize: none;
 }
 .gym-warm-actions { display: flex; gap: 18px; }
+
+
+/* ── COOKING ── */
+.cook-filters {
+  display: flex; gap: 6px; margin-top: 18px;
+  overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none;
+  margin-left: -2px; padding: 2px;
+}
+.cook-filters::-webkit-scrollbar { display: none; }
+.cook-filters .bar-chip { flex-shrink: 0; white-space: nowrap; }
+.cook-filters .cook-tagchip:not(.active) { border-style: dashed; }
+
+.cook-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.cook-tag {
+  font-size: 0.66rem; font-weight: 600; color: var(--green-mid);
+  background: rgba(82,183,136,0.12); padding: 2px 8px; border-radius: 10px;
+}
+.cook-norecipe { font-size: 0.74rem; font-style: italic; color: #a0790f; margin-top: 5px; }
+.cook-row-n { font-size: 0.74rem; font-weight: 600; color: var(--green); }
+.cook-row-n.untried { color: var(--muted); font-weight: 500; font-style: italic; }
+.cook-last { font-size: 1rem; padding-top: 4px; }
+
+.cook-did {
+  width: 100%; margin-top: 14px; padding: 14px;
+  border: 2px solid var(--green); background: var(--green); color: var(--white);
+  font-family: 'EB Garamond', serif; font-size: 0.82rem; font-weight: 600;
+  letter-spacing: 0.08em; text-transform: uppercase; border-radius: 3px; cursor: pointer;
+}
+.cook-did:active { background: var(--green-mid); }
+
+.cook-link {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 2px; border-bottom: 1px solid var(--border);
+}
+.cook-link a { flex: 1; min-width: 0; text-decoration: none; display: flex; flex-direction: column; }
+.cook-link-label { font-size: 0.92rem; font-weight: 600; color: var(--green); }
+.cook-link-url {
+  font-size: 0.72rem; color: var(--muted); margin-top: 2px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* large and loose — read from a phone propped up on the counter */
+.cook-recipe {
+  padding: 14px 16px; background: var(--off-white);
+  border: 1.5px solid var(--border); border-radius: 4px;
+  font-size: 1.08rem; line-height: 1.65; color: var(--ink);
+  white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.cook-recipe-actions { display: flex; gap: 6px; justify-content: flex-end; margin-top: 8px; }
+.cook-hint { font-size: 0.8rem; color: var(--muted); font-style: italic; }
+
+.cook-attempt { padding: 10px 2px; border-bottom: 1px solid var(--border); }
+.cook-attempt-top { display: flex; align-items: center; gap: 10px; }
+.cook-attempt-top .draw-row-felt { flex: 1; margin-top: 0; }
+.cook-attempt-next { font-size: 0.86rem; color: var(--ink-mid); margin-top: 4px; line-height: 1.45; }
+
+.cook-more {
+  display: block; margin: 26px auto 0; padding: 8px 16px;
+  background: transparent; border: none; color: var(--muted);
+  font-family: 'EB Garamond', serif; font-size: 0.8rem; font-weight: 600;
+  letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer;
+}

@@ -1,7 +1,7 @@
 // theo's day — app-hobbies.js
 // The hobby switcher only. Each hobby lives in its own file:
 //   reading  → app-reading.js
-//   cooking  → app-cooking.js   (not built yet)
+//   cooking  → app-cooking.js
 //   drawing  → app-drawing.js
 //   chess    → app-chess.js     (not built yet)
 //   writing  → app-writing.js   (not built yet)
@@ -15,7 +15,7 @@
   const HOBBIES = [
     { key:'chess',   name:'Chess',   note:'Rapid games imported from Chess.com, an archive you can tag and annotate, a study log by phase, and graphs of rating against games played.' },
     { key:'drawing', name:'Drawing' },
-    { key:'cooking', name:'Cooking', note:'Dishes you return to, each with its attempts: rating out of 10, what you would change next time, time taken and the recipe source. Plus a to-try queue.' },
+    { key:'cooking', name:'Cooking' },
     { key:'reading', name:'Reading', note:'Books with pages as you go, a rating out of 5 and what you took from it on finishing, a separate quote collection, and a link out to Goodreads.' },
     { key:'writing', name:'Writing', note:'Waiting on your Obsidian vault. Fragments captured on the move, pieces tracked and linked out rather than drafted here.' }
   ];
@@ -27,6 +27,8 @@
     readingState.view = 'shelf';
     drawState.view = 'home';
     drawState.logging = false;
+    cookState.view = 'book';
+    cookReleaseWake();
     hobbyMenuOpen = false;
     renderHobbies();
   }
@@ -36,6 +38,7 @@
     const cur = currentHobby();
     if (cur === 'reading') return readingState.view !== 'shelf';
     if (cur === 'drawing') return drawState.view !== 'home';
+    if (cur === 'cooking') return cookState.view !== 'book';
     return false;
   }
 
@@ -66,6 +69,7 @@
     if (!body) return;
     if (cur === 'reading') return renderReading(body);
     if (cur === 'drawing') return renderDrawing(body);
+    if (cur === 'cooking') return renderCooking(body);
     body.innerHTML = `
       <div class="hobby-soon">
         <div class="hobby-soon-title">${escHtml(hb.name)}</div>

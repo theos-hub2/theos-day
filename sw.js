@@ -1,7 +1,7 @@
 /* theo's day — service worker
    Bump CACHE_VERSION whenever you change index.html so the new version installs. */
 
-const CACHE_VERSION = 'v61';
+const CACHE_VERSION = 'v62';
 const SHELL_CACHE = `td-shell-${CACHE_VERSION}`;
 const FONT_CACHE = 'td-fonts';
 const COVER_CACHE = 'td-covers';
@@ -15,6 +15,7 @@ const SHELL_ASSETS = [
   './app-hobbies.js',
   './app-reading.js',
   './app-drawing.js',
+  './app-cooking.js',
   './app-gym.js',
   './app-travel.js',
   './app-review.js',
