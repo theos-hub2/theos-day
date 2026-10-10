@@ -3239,14 +3239,6 @@
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
-/* large and loose — read from a phone propped up on the counter */
-.cook-recipe {
-  padding: 14px 16px; background: var(--off-white);
-  border: 1.5px solid var(--border); border-radius: 4px;
-  font-size: 1.08rem; line-height: 1.65; color: var(--ink);
-  white-space: pre-wrap; overflow-wrap: anywhere;
-}
-.cook-recipe-actions { display: flex; gap: 6px; justify-content: flex-end; margin-top: 8px; }
 .cook-hint { font-size: 0.8rem; color: var(--muted); font-style: italic; }
 
 .cook-attempt { padding: 10px 2px; border-bottom: 1px solid var(--border); }
@@ -3260,3 +3252,102 @@
   font-family: 'EB Garamond', serif; font-size: 0.8rem; font-weight: 600;
   letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer;
 }
+
+.cook-recipe-actions { display: flex; gap: 6px; justify-content: flex-end; margin-top: 10px; flex-wrap: wrap; }
+.cook-more-row { display: flex; gap: 8px; margin-bottom: 4px; }
+.cook-more-row .sync-btn { flex: 1; }
+
+/* Recipe book | Groceries */
+.cook-switch {
+  display: flex; margin-top: 16px; padding: 3px;
+  background: var(--off-white); border: 1.5px solid var(--border); border-radius: 22px;
+}
+.cook-switch button {
+  flex: 1; padding: 9px 6px; border: none; background: transparent; border-radius: 18px;
+  font-family: 'EB Garamond', serif; font-size: 0.86rem; font-weight: 600;
+  color: var(--ink-mid); cursor: pointer;
+}
+.cook-switch button.on { background: var(--green); color: var(--white); }
+.cook-switch-n {
+  display: inline-block; min-width: 18px; padding: 0 5px; margin-left: 3px;
+  border-radius: 9px; font-size: 0.7rem; line-height: 18px;
+  background: var(--green-pale); color: var(--green);
+}
+.cook-switch button.on .cook-switch-n { background: rgba(255,255,255,0.22); color: var(--white); }
+
+/* dish page */
+.cook-details { margin-top: 2px; font-size: 0.86rem; color: var(--ink-mid); cursor: pointer; }
+.cook-details .cook-tags { margin-top: 5px; }
+.cook-addline {
+  margin-top: 4px; padding: 4px 0; background: transparent; border: none;
+  font-family: 'EB Garamond', serif; font-size: 0.84rem; color: var(--green); cursor: pointer;
+}
+.cook-group-title {
+  margin: 12px 0 4px; font-size: 0.82rem; font-weight: 700; color: var(--green-mid);
+}
+.cook-ing {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 8px 2px; border-bottom: 1px solid var(--border);
+  font-size: 0.95rem; color: var(--ink);
+}
+.cook-ing-add {
+  flex-shrink: 0; width: 30px; height: 30px; border-radius: 50%;
+  border: 1.5px solid var(--green-pale); background: transparent;
+  color: var(--green); font-size: 1rem; font-weight: 700; line-height: 1; cursor: pointer;
+}
+.cook-ing-add.on { background: var(--green); border-color: var(--green); color: var(--white); font-size: 0.8rem; }
+.cook-steps { padding-left: 22px; margin: 4px 0 0; }
+.cook-steps li { padding: 5px 0; font-size: 0.95rem; line-height: 1.5; color: var(--ink); }
+
+/* cook mode — big targets, read from a phone propped on the counter */
+.cook-mode-top { display: flex; align-items: center; justify-content: space-between; }
+.cook-progress { padding-top: 14px; font-size: 0.82rem; font-weight: 600; color: var(--muted); }
+.cook-awake { font-size: 0.76rem; font-style: italic; color: var(--muted); }
+.cook-mode-links { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; }
+.cook-mode-links .bar-chip { text-decoration: none; color: var(--green); border-color: var(--green-pale); }
+.cook-box {
+  background: var(--off-white); border: 1.5px solid var(--border); border-radius: 6px;
+  padding: 4px 12px; margin-bottom: 10px;
+}
+.cook-box-title { padding: 10px 0 2px; font-size: 1rem; font-weight: 700; color: var(--green); }
+.cook-check {
+  display: flex; align-items: flex-start; gap: 12px; width: 100%;
+  padding: 12px 0; background: transparent; border: none;
+  border-bottom: 1px solid var(--border); text-align: left; cursor: pointer;
+  font-family: 'EB Garamond', serif; color: var(--ink);
+}
+.cook-check:last-child { border-bottom: none; }
+.cook-check-dot {
+  flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%;
+  border: 1.5px solid var(--green-pale); display: flex; align-items: center; justify-content: center;
+  font-size: 0.78rem; font-weight: 700; color: var(--green-mid);
+}
+.cook-check-text { font-size: 1.08rem; line-height: 1.5; padding-top: 1px; }
+.cook-check.on .cook-check-dot { background: var(--green); border-color: var(--green); color: var(--white); }
+.cook-check.on .cook-check-text { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--border); }
+
+/* groceries — like a Notes checklist. Long-press must not open iOS's text menu */
+.gro-list { margin-top: 10px; }
+.gro-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 2px; border-bottom: 1px solid var(--border); cursor: pointer;
+  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+  transition: background 0.3s;
+}
+.gro-row.pressing { background: var(--off-white); }
+.gro-dot {
+  flex-shrink: 0; width: 24px; height: 24px; border-radius: 50%;
+  border: 1.5px solid var(--muted); display: flex; align-items: center; justify-content: center;
+  font-size: 0.74rem; font-weight: 700; color: var(--white);
+}
+.gro-text { font-size: 1rem; color: var(--ink); line-height: 1.35; min-width: 0; }
+.gro-for { display: block; font-size: 0.72rem; color: var(--muted); font-style: italic; }
+.gro-row.done .gro-dot { background: var(--green-light); border-color: var(--green-light); }
+.gro-row.done .gro-text { color: var(--muted); text-decoration: line-through; }
+.gro-edit { padding: 10px 0; border-bottom: 1px solid var(--border); }
+.gro-edit input {
+  width: 100%; padding: 10px 12px; border: 1.5px solid var(--green); background: var(--white);
+  color: var(--ink); font-family: 'EB Garamond', serif; font-size: 16px; outline: none; border-radius: 3px;
+}
+.gro-edit-actions { display: flex; gap: 8px; margin-top: 8px; }
+.gro-edit-actions > * { flex: 1; }

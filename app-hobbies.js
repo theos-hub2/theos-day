@@ -38,7 +38,7 @@
     const cur = currentHobby();
     if (cur === 'reading') return readingState.view !== 'shelf';
     if (cur === 'drawing') return drawState.view !== 'home';
-    if (cur === 'cooking') return cookState.view !== 'book';
+    if (cur === 'cooking') return cookState.view === 'dish' || cookState.view === 'cook';
     return false;
   }
 

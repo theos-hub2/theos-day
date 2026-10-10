@@ -1,30 +1,84 @@
 // theo's day — app-cooking.js
-// A recipe book first. A dish can exist as just a name ("keema noodles") and
-// pick up links, a pasted recipe, tags and a time later. Cooking it logs an
-// attempt — date, stars, and what you'd change — which is where the times
-// cooked and the average come from. Never typed, always derived.
+// Three jobs, three screens:
+//   Recipe book  — browse and plan (the list, and each dish's page)
+//   Cook mode    — doing it: big checkable ingredients and steps, screen kept on
+//   Groceries    — shopping: one checklist, fed by hand or from any dish
+// A dish can exist as just a name and pick up links, ingredients, steps and
+// details later. Finishing a cook logs an attempt — date, stars, what you'd
+// change — which is where times cooked and the average come from.
 
 const COOK_QUICK_MINS = [15, 20, 30, 45, 60];
 const COOK_FAST = 20;   // the "under 20 min" filter
 
+// ── STORAGE ──
+
 function loadDishes(){
-  try { return JSON.parse(localStorage.getItem('theosDishes') || '[]'); }
+  let list;
+  try { list = JSON.parse(localStorage.getItem('theosDishes') || '[]'); }
   catch { return []; }
+  // the first version had one recipe box; it becomes the steps
+  list.forEach(d => {
+    if (d.recipe !== undefined) {
+      if (d.recipe && !d.steps) d.steps = d.recipe;
+      delete d.recipe;
+    }
+  });
+  return list;
 }
 function saveDishes(list){
   localStorage.setItem('theosDishes', JSON.stringify(list));
   if (typeof queueSync === 'function') queueSync();
 }
 
+function loadGroceries(){
+  try { return JSON.parse(localStorage.getItem('theosGroceries') || '[]'); }
+  catch { return []; }
+}
+function saveGroceries(list){
+  localStorage.setItem('theosGroceries', JSON.stringify(list));
+  if (typeof queueSync === 'function') queueSync();
+}
+
+// things you've put on the list before, newest first — feeds autocomplete
+function loadGroceryPast(){
+  try { return JSON.parse(localStorage.getItem('theosGroceryPast') || '[]'); }
+  catch { return []; }
+}
+function rememberGrocery(text){
+  const past = loadGroceryPast().filter(x => x.toLowerCase() !== text.toLowerCase());
+  past.unshift(text);
+  localStorage.setItem('theosGroceryPast', JSON.stringify(past.slice(0, 300)));
+}
+
+// checks made during a cook — a guide, not history. Kept per dish until you
+// finish or stop, so leaving the screen mid-cook loses nothing.
+function loadCookProgress(){
+  try { return JSON.parse(localStorage.getItem('theosCookProgress') || '{}'); }
+  catch { return {}; }
+}
+function saveCookProgress(p){ localStorage.setItem('theosCookProgress', JSON.stringify(p)); }
+function dishProgress(id){
+  const p = loadCookProgress()[id];
+  return p ? { ing: p.ing || [], steps: p.steps || [] } : null;
+}
+function clearDishProgress(id){
+  const p = loadCookProgress();
+  delete p[id];
+  saveCookProgress(p);
+}
+
+// ── STATE ──
+
 let cookState = {
-  view: 'book',          // 'book' (the list) or 'dish'
+  view: 'book',          // 'book' · 'groceries' · 'dish' · 'cook'
   dishId: null,
   adding: false,
   filter: { fast:false, diff:'', tag:'' },
-  cooking: false,        // the "Cooked it" panel
+  cooking: false,        // the log panel (finish, or a past cook)
   cookForm: {},
-  editingRecipe: false,
+  editing: '',           // 'ingredients' · 'steps' · 'details' on the dish page
   more: false,
+  groEdit: null,         // grocery item being edited
   tagList: []            // tags rendered on screen, so chips can pass an index
 };
 
@@ -50,12 +104,10 @@ function dishStats(d){
   return { count: a.length, avg, last };
 }
 
-function fmtAvg(avg){
-  return (Math.round(avg * 10) / 10).toString();
-}
+function fmtAvg(avg){ return (Math.round(avg * 10) / 10).toString(); }
 
 function hasRecipe(d){
-  return (d.links && d.links.length) || (d.recipe || '').trim();
+  return (d.links && d.links.length) || (d.ingredients || '').trim() || (d.steps || '').trim();
 }
 
 // every technique you've made, kept even when no dish uses it right now
@@ -74,9 +126,7 @@ function usedCookTags(){
 }
 
 // most recent activity first: last cooked, else when it was added
-function dishOrder(d){
-  return dishStats(d).last || d.added || '';
-}
+function dishOrder(d){ return dishStats(d).last || d.added || ''; }
 
 function linkLabel(url){
   let host = '';
@@ -94,20 +144,65 @@ function cookDaysAgo(key){
   return n + ' days ago';
 }
 
+// One line is one item. A short line ending in a colon ("Rice:") starts a
+// new box, which is how a multi-pot meal splits into parts. Pasted bullets
+// and numbers are stripped — cook mode numbers steps itself.
+function parseRecipeLines(text){
+  const groups = [];
+  let cur = { title:'', items:[] };
+  let i = 0;
+  (text || '').split('\n').map(l => l.trim()).filter(Boolean).forEach(line => {
+    if (/:$/.test(line) && line.length <= 40) {
+      if (cur.title || cur.items.length) groups.push(cur);
+      cur = { title: line.slice(0, -1).trim(), items:[] };
+      return;
+    }
+    const clean = line.replace(/^([-•*·]|\d+[.)]|step\s*\d+[:.)]?)\s*/i, '').trim();
+    if (clean) cur.items.push({ text: clean, i: i++ });
+  });
+  if (cur.title || cur.items.length) groups.push(cur);
+  return groups;
+}
+function recipeItemCount(text){
+  return parseRecipeLines(text).reduce((n, g) => n + g.items.length, 0);
+}
+
+function onGroceryList(text){
+  const t = text.toLowerCase();
+  return loadGroceries().some(g => !g.done && g.text.toLowerCase() === t);
+}
+
 // ── NAVIGATION ──
 
 function cookGo(view, id){
-  if (view !== 'dish') cookReleaseWake();
+  if (view !== 'cook') cookReleaseWake();
   cookState.view = view;
-  cookState.dishId = id || null;
+  if (id !== undefined) cookState.dishId = id;
+  if (view === 'book' || view === 'groceries') cookState.dishId = null;
   cookState.cooking = false;
-  cookState.editingRecipe = false;
+  cookState.editing = '';
   cookState.more = false;
+  cookState.groEdit = null;
   renderHobbies();
   window.scrollTo(0, 0);
 }
 function openDish(id){ cookGo('dish', id); }
 function cookBack(){ cookGo('book'); }
+
+function cookSwitchHTML(){
+  const n = loadGroceries().filter(g => !g.done).length;
+  return `<div class="cook-switch">
+    <button class="${cookState.view === 'book' ? 'on' : ''}" onclick="cookGo('book')">Recipe book</button>
+    <button class="${cookState.view === 'groceries' ? 'on' : ''}" onclick="cookGo('groceries')">Groceries${n ? ` <span class="cook-switch-n">${n}</span>` : ''}</button>
+  </div>`;
+}
+
+function renderCooking(body){
+  if (cookState.view === 'dish') return renderDish(body);
+  if (cookState.view === 'cook') return renderCookMode(body);
+  if (cookState.view === 'groceries') return renderGroceries(body);
+  return renderRecipeBook(body);
+}
 
 // ── RECIPE BOOK (the list) ──
 
@@ -125,7 +220,7 @@ function addDish(){
   const name = el ? el.value.trim() : '';
   if (!name) return;
   const list = loadDishes();
-  list.push({ id: cookId(), name, added: getTodayKey(), links: [], recipe: '',
+  list.push({ id: cookId(), name, added: getTodayKey(), links: [], ingredients: '', steps: '',
               difficulty: '', mins: '', tags: [], notes: '', attempts: [] });
   saveDishes(list);
   cookState.adding = false;
@@ -143,9 +238,7 @@ function cookFilter(kind, i){
   renderHobbies();
 }
 
-function renderCooking(body){
-  if (cookState.view === 'dish') return renderDish(body);
-
+function renderRecipeBook(body){
   const all = loadDishes();
   const f = cookState.filter;
   const tags = usedCookTags();
@@ -158,7 +251,7 @@ function renderCooking(body){
     .filter(d => !f.tag || (d.tags || []).includes(f.tag))
     .sort((a, b) => dishOrder(b).localeCompare(dishOrder(a)));
 
-  let h = '';
+  let h = cookSwitchHTML();
 
   if (all.length) {
     h += `<div class="cook-filters">
@@ -193,33 +286,38 @@ function renderCooking(body){
   body.innerHTML = h;
 }
 
-function dishRowHTML(d){
-  const s = dishStats(d);
+function detailBits(d){
   const bits = [];
   if (d.difficulty) bits.push(d.difficulty === 'easy' ? 'Easy' : 'Stretch');
   if (Number(d.mins) > 0) bits.push(d.mins + ' min');
-  const tags = (d.tags || []);
+  return bits;
+}
 
-  let right;
-  if (s.count) {
-    right = `<div class="cook-row-n">Cooked ${s.count}×</div>
-             ${s.avg ? `<div class="draw-row-felt">★ ${fmtAvg(s.avg)}</div>` : ''}`;
-  } else {
-    right = `<div class="cook-row-n untried">Untried</div>`;
-  }
+function tagPillsHTML(d){
+  const tags = d.tags || [];
+  return tags.length ? `<div class="cook-tags">${tags.map(t => `<span class="cook-tag">${escHtml(t)}</span>`).join('')}</div>` : '';
+}
+
+function dishRowHTML(d){
+  const s = dishStats(d);
+  const bits = detailBits(d);
+  const right = s.count
+    ? `<div class="cook-row-n">Cooked ${s.count}×</div>
+       ${s.avg ? `<div class="draw-row-felt">★ ${fmtAvg(s.avg)}</div>` : ''}`
+    : `<div class="cook-row-n untried">Untried</div>`;
 
   return `<div class="draw-row" onclick="openDish('${d.id}')">
     <div class="draw-row-main">
       <div class="draw-row-top">${escHtml(d.name)}</div>
       ${bits.length ? `<div class="draw-row-sub">${escHtml(bits.join(' · '))}</div>` : ''}
-      ${tags.length ? `<div class="cook-tags">${tags.map(t => `<span class="cook-tag">${escHtml(t)}</span>`).join('')}</div>` : ''}
+      ${tagPillsHTML(d)}
       ${hasRecipe(d) ? '' : `<div class="cook-norecipe">No recipe yet</div>`}
     </div>
     <div class="draw-row-right">${right}</div>
   </div>`;
 }
 
-// ── DISH PAGE ──
+// ── DISH PAGE (planning) ──
 
 function renderDish(body){
   const d = getDish(cookState.dishId);
@@ -227,9 +325,23 @@ function renderDish(body){
   const s = dishStats(d);
   const tags = allCookTags();
   cookState.tagList = tags;
+  const bits = detailBits(d);
+  const inProgress = dishProgress(d.id);
 
   let h = `<button class="gym-back" onclick="cookBack()">&lsaquo; Back</button>
            <div class="screen-title" style="padding-top:6px">${escHtml(d.name)}</div>`;
+
+  // details: set once, so they sit quietly under the title
+  if (cookState.editing === 'details') {
+    h += detailsEditHTML(d, tags);
+  } else if (bits.length || (d.tags || []).length) {
+    h += `<div class="cook-details" onclick="cookEdit('details')">
+            ${bits.length ? `<span>${escHtml(bits.join(' · '))}</span>` : ''}
+            ${tagPillsHTML(d)}
+          </div>`;
+  } else {
+    h += `<button class="cook-addline" onclick="cookEdit('details')">+ Time, difficulty, techniques</button>`;
+  }
 
   if (s.count) {
     h += `<div class="read-stats" style="margin-top:12px">
@@ -239,24 +351,10 @@ function renderDish(body){
           </div>`;
   }
 
-  // ── cooked it ──
   if (cookState.cooking) {
-    const cf = cookState.cookForm;
-    h += `<div class="add-book-panel" style="margin-top:14px">
-      <div class="date-pair"><label>Date<input type="date" id="cookDate" value="${cf.date}"/></label></div>
-      <div class="sync-label" style="margin-top:14px">How did it turn out?</div>
-      <div class="star-row">${[1,2,3,4,5].map(n =>
-        `<button class="star${cf.stars >= n ? ' on' : ''}" onclick="cookSetStars(${cf.stars === n ? 0 : n})">★</button>`
-      ).join('')}</div>
-      <textarea id="cookNext" class="takeaway" rows="3" style="margin-top:12px"
-                placeholder="Next time I'd…">${escHtml(cf.next || '')}</textarea>
-      <div class="finish-actions">
-        <button class="sync-btn" onclick="cookCancel()">Cancel</button>
-        <button class="btn btn-add" onclick="cookSave()">Log it</button>
-      </div>
-    </div>`;
+    h += logPanelHTML('Log a past cook');
   } else {
-    h += `<button class="cook-did" onclick="cookStart()">Cooked it</button>`;
+    h += `<button class="cook-did" onclick="startCooking()">${inProgress ? 'Continue cooking' : "Let's cook"}</button>`;
   }
 
   // ── links ──
@@ -277,56 +375,14 @@ function renderDish(body){
     <button class="btn btn-add" onclick="cookAddLink()">Add</button>
   </div>`;
 
-  // ── recipe ──
-  h += `<div class="section-label cook-recipe-head" style="margin-top:24px">Recipe</div>`;
-  if (cookState.editingRecipe) {
-    h += `<textarea id="cookRecipe" class="takeaway" rows="12"
-              placeholder="Paste ingredients and steps">${escHtml(d.recipe || '')}</textarea>
-          <div class="finish-actions">
-            <button class="sync-btn" onclick="cookEditRecipe(false)">Cancel</button>
-            <button class="btn btn-add" onclick="cookSaveRecipe()">Save</button>
-          </div>`;
-  } else if ((d.recipe || '').trim()) {
-    h += `<div class="cook-recipe">${escHtml(d.recipe)}</div>
-          <div class="cook-recipe-actions">
-            ${cookWakeSupported() ? `<button class="bar-chip${cookWake.on ? ' active' : ''}" onclick="cookToggleWake()">
-              ${cookWake.on ? 'Screen stays on' : 'Keep screen on'}</button>` : ''}
-            <button class="bar-chip" onclick="cookEditRecipe(true)">Edit</button>
-          </div>`;
-  } else {
-    h += `<button class="add-book-btn" style="margin-top:0" onclick="cookEditRecipe(true)">+ Paste a recipe</button>`;
-  }
+  h += recipeSectionHTML(d, 'ingredients');
+  h += recipeSectionHTML(d, 'steps');
 
-  // ── details ──
-  h += `<div class="section-label" style="margin-top:24px">Details</div>`;
-  h += `<div class="sync-label">Difficulty</div>
-        <div class="bar-row">
-          <button class="bar-chip${d.difficulty === 'easy' ? ' active' : ''}" onclick="cookSetDiff('easy')">Easy</button>
-          <button class="bar-chip${d.difficulty === 'stretch' ? ' active' : ''}" onclick="cookSetDiff('stretch')">Stretch</button>
-        </div>`;
-  h += `<div class="sync-label">Minutes</div>
-        <div class="draw-mins" style="margin-bottom:12px">
-          <input type="number" inputmode="numeric" id="cookMins" value="${d.mins || ''}" placeholder="0"
-                 onchange="cookSetMins(this.value, false)"/>
-          ${COOK_QUICK_MINS.map(m => `<button class="bar-chip${Number(d.mins) === m ? ' active' : ''}"
-              onclick="cookSetMins(${m}, true)">${m}</button>`).join('')}
-        </div>`;
-  h += `<div class="sync-label">Techniques</div>
-        <div class="bar-row" style="margin-bottom:8px">
-          ${tags.map((t, i) => `<button class="bar-chip${(d.tags || []).includes(t) ? ' active' : ''}"
-              onclick="cookToggleTag(${i})">${escHtml(t)}</button>`).join('')}
-          ${tags.length ? '' : '<span class="cook-hint">None yet — add one below.</span>'}
-        </div>
-        <div class="book-search" style="margin-bottom:12px">
-          <input type="text" id="cookNewTag" placeholder="New technique, e.g. stir-fry" autocomplete="off"
-                 onkeydown="if(event.key==='Enter')cookAddTag()"/>
-          <button class="btn btn-add" onclick="cookAddTag()">Add</button>
-        </div>`;
-  h += `<div class="sync-label">Notes</div>
+  h += `<div class="section-label" style="margin-top:24px">Notes</div>
         <textarea class="takeaway" rows="3" placeholder="Anything worth remembering"
                   onchange="cookSetNotes(this.value)">${escHtml(d.notes || '')}</textarea>`;
 
-  // ── attempts ──
+  // ── history ──
   const attempts = (d.attempts || []).slice().sort((a, b) => b.date.localeCompare(a.date));
   if (attempts.length) {
     h += `<div class="section-label" style="margin-top:24px">Every time you've cooked it</div>`;
@@ -344,7 +400,11 @@ function renderDish(body){
   h += `<button class="cook-more" onclick="cookToggleMore()">${cookState.more ? 'Less' : 'More'}</button>`;
   if (cookState.more) {
     h += `<div class="add-book-panel">
-      <div class="book-search" style="margin-top:0">
+      <div class="cook-more-row">
+        <button class="sync-btn" onclick="cookEdit('details')">Edit details</button>
+        <button class="sync-btn" onclick="cookLogPast()">Log a past cook</button>
+      </div>
+      <div class="book-search">
         <input type="text" id="cookRename" value="${escHtml(d.name)}" autocomplete="off"/>
         <button class="btn btn-add" onclick="cookRename()">Rename</button>
       </div>
@@ -355,9 +415,126 @@ function renderDish(body){
   body.innerHTML = h;
 }
 
+function detailsEditHTML(d, tags){
+  return `<div class="add-book-panel" style="margin-top:12px">
+    <div class="sync-label">Difficulty</div>
+    <div class="bar-row">
+      <button class="bar-chip${d.difficulty === 'easy' ? ' active' : ''}" onclick="cookSetDiff('easy')">Easy</button>
+      <button class="bar-chip${d.difficulty === 'stretch' ? ' active' : ''}" onclick="cookSetDiff('stretch')">Stretch</button>
+    </div>
+    <div class="sync-label">Minutes</div>
+    <div class="draw-mins" style="margin-bottom:12px">
+      <input type="number" inputmode="numeric" id="cookMins" value="${d.mins || ''}" placeholder="0"
+             onchange="cookSetMins(this.value, false)"/>
+      ${COOK_QUICK_MINS.map(m => `<button class="bar-chip${Number(d.mins) === m ? ' active' : ''}"
+          onclick="cookSetMins(${m}, true)">${m}</button>`).join('')}
+    </div>
+    <div class="sync-label">Techniques</div>
+    <div class="bar-row" style="margin-bottom:8px">
+      ${tags.map((t, i) => `<button class="bar-chip${(d.tags || []).includes(t) ? ' active' : ''}"
+          onclick="cookToggleTag(${i})">${escHtml(t)}</button>`).join('')}
+      ${tags.length ? '' : '<span class="cook-hint">None yet — add one below.</span>'}
+    </div>
+    <div class="book-search" style="margin-top:0">
+      <input type="text" id="cookNewTag" placeholder="New technique, e.g. stir-fry" autocomplete="off"
+             onkeydown="if(event.key==='Enter')cookAddTag()"/>
+      <button class="btn btn-add" onclick="cookAddTag()">Add</button>
+    </div>
+    <button class="sync-btn" style="width:100%;margin-top:12px" onclick="cookEdit('')">Done</button>
+  </div>`;
+}
+
+const RECIPE_COPY = {
+  ingredients: { title:'Ingredients', add:'+ Add ingredients',
+                 hint:'One per line. A line ending in a colon, like "Sauce:", starts a group.' },
+  steps:       { title:'Steps', add:'+ Add steps',
+                 hint:'One step per line. For a meal with parts, put "Rice:", "Beans:" and so on above each part — cook mode gives each its own box.' }
+};
+
+function recipeSectionHTML(d, field){
+  const c = RECIPE_COPY[field];
+  const text = d[field] || '';
+  let h = `<div class="section-label" style="margin-top:24px">${c.title}</div>`;
+
+  if (cookState.editing === field) {
+    return h + `<p class="cook-hint" style="margin-bottom:8px">${c.hint}</p>
+      <textarea id="cookText" class="takeaway" rows="10">${escHtml(text)}</textarea>
+      <div class="finish-actions">
+        <button class="sync-btn" onclick="cookEdit('')">Cancel</button>
+        <button class="btn btn-add" onclick="cookSaveText('${field}')">Save</button>
+      </div>`;
+  }
+
+  const groups = parseRecipeLines(text);
+  if (!groups.length) {
+    return h + `<button class="add-book-btn" style="margin-top:0" onclick="cookEdit('${field}')">${c.add}</button>`;
+  }
+
+  if (field === 'ingredients') {
+    const all = groups.flatMap(g => g.items);
+    const allOn = all.every(it => onGroceryList(it.text));
+    h += groups.map(g => `
+      ${g.title ? `<div class="cook-group-title">${escHtml(g.title)}</div>` : ''}
+      ${g.items.map(it => {
+        const on = onGroceryList(it.text);
+        return `<div class="cook-ing">
+          <span>${escHtml(it.text)}</span>
+          <button class="cook-ing-add${on ? ' on' : ''}" onclick="cookAddIngredient(${it.i})"
+                  aria-label="Add to groceries">${on ? '✓' : '+'}</button>
+        </div>`;
+      }).join('')}`).join('');
+    h += `<div class="cook-recipe-actions">
+      <button class="bar-chip${allOn ? ' active' : ''}" onclick="cookAddAllIngredients()">${allOn ? 'All on the list' : 'Add all to groceries'}</button>
+      <button class="bar-chip" onclick="cookEdit('ingredients')">Edit</button>
+    </div>`;
+  } else {
+    h += groups.map(g => `
+      ${g.title ? `<div class="cook-group-title">${escHtml(g.title)}</div>` : ''}
+      <ol class="cook-steps">${g.items.map(it => `<li>${escHtml(it.text)}</li>`).join('')}</ol>`).join('');
+    h += `<div class="cook-recipe-actions">
+      <button class="bar-chip" onclick="cookEdit('steps')">Edit</button>
+    </div>`;
+  }
+  return h;
+}
+
+function logPanelHTML(title){
+  const cf = cookState.cookForm;
+  return `<div class="add-book-panel" style="margin-top:14px">
+    <div class="finish-title">${title}</div>
+    <div class="date-pair" style="margin-top:10px"><label>Date<input type="date" id="cookDate" value="${cf.date}"/></label></div>
+    <div class="sync-label" style="margin-top:14px">How did it turn out?</div>
+    <div class="star-row">${[1,2,3,4,5].map(n =>
+      `<button class="star${cf.stars >= n ? ' on' : ''}" onclick="cookSetStars(${cf.stars === n ? 0 : n})">★</button>`
+    ).join('')}</div>
+    <textarea id="cookNext" class="takeaway" rows="3" style="margin-top:12px"
+              placeholder="Next time I'd…">${escHtml(cf.next || '')}</textarea>
+    <div class="finish-actions">
+      <button class="sync-btn" onclick="cookCancel()">Cancel</button>
+      <button class="btn btn-add" onclick="cookSave()">Log it</button>
+    </div>
+  </div>`;
+}
+
 // ── DISH ACTIONS ──
 
-function cookStart(){
+function cookEdit(what){
+  cookState.editing = what;
+  cookState.more = false;
+  renderHobbies();
+  const el = document.getElementById(what === 'details' ? 'cookMins' : 'cookText');
+  if (el && what !== 'details') el.focus();
+}
+function cookSaveText(field){
+  const el = document.getElementById('cookText');
+  const v = el ? el.value.trim() : '';
+  updateDish(cookState.dishId, d => { d[field] = v; });
+  cookState.editing = '';
+  renderHobbies();
+}
+
+function cookLogPast(){
+  cookState.more = false;
   cookState.cooking = true;
   cookState.cookForm = { date: getTodayKey(), stars: 0, next: '' };
   renderHobbies();
@@ -379,10 +556,13 @@ function cookSetStars(n){
 function cookSave(){
   cookSyncForm();
   const cf = cookState.cookForm;
-  updateDish(cookState.dishId, d => {
+  const id = cookState.dishId;
+  updateDish(id, d => {
     d.attempts = d.attempts || [];
     d.attempts.push({ id: cookId(), date: cf.date || getTodayKey(), stars: cf.stars || 0, next: (cf.next || '').trim() });
   });
+  // finishing from cook mode ends that cook
+  if (cookState.view === 'cook') { clearDishProgress(id); cookGo('dish', id); return; }
   cookState.cooking = false;
   renderHobbies();
 }
@@ -403,19 +583,6 @@ function cookAddLink(){
 }
 function cookRemoveLink(i){
   updateDish(cookState.dishId, d => { d.links.splice(i, 1); });
-  renderHobbies();
-}
-
-function cookEditRecipe(on){
-  cookState.editingRecipe = on;
-  renderHobbies();
-  if (on) { const el = document.getElementById('cookRecipe'); if (el) el.focus(); }
-}
-function cookSaveRecipe(){
-  const el = document.getElementById('cookRecipe');
-  const v = el ? el.value : '';
-  updateDish(cookState.dishId, d => { d.recipe = v.trim(); });
-  cookState.editingRecipe = false;
   renderHobbies();
 }
 
@@ -444,18 +611,14 @@ function cookAddTag(){
   // reuse an existing tag if it only differs by case
   const known = allCookTags();
   const t = known.find(x => x.toLowerCase() === raw.toLowerCase()) || raw.toLowerCase();
-  if (!known.includes(t)) {
-    localStorage.setItem('theosCookTags', JSON.stringify(known.concat(t)));
-  }
+  if (!known.includes(t)) localStorage.setItem('theosCookTags', JSON.stringify(known.concat(t)));
   updateDish(cookState.dishId, d => {
     d.tags = d.tags || [];
     if (!d.tags.includes(t)) d.tags.push(t);
   });
   renderHobbies();
 }
-function cookSetNotes(v){
-  updateDish(cookState.dishId, d => { d.notes = v; });
-}
+function cookSetNotes(v){ updateDish(cookState.dishId, d => { d.notes = v; }); }
 
 function cookToggleMore(){ cookState.more = !cookState.more; renderHobbies(); }
 function cookRename(){
@@ -470,29 +633,288 @@ function cookDeleteDish(){
   const d = getDish(cookState.dishId);
   if (!d || !confirm(`Remove ${d.name} and everything logged for it?`)) return;
   saveDishes(loadDishes().filter(x => x.id !== d.id));
+  clearDishProgress(d.id);
   cookBack();
 }
 
+// ingredients → groceries
+function ingredientItems(d){ return parseRecipeLines(d.ingredients).flatMap(g => g.items); }
+
+function addToGroceries(text, dish){
+  if (onGroceryList(text)) return false;
+  const list = loadGroceries();
+  list.push({ id: cookId(), text, done:false, dishId: dish ? dish.id : '', dishName: dish ? dish.name : '' });
+  saveGroceries(list);
+  rememberGrocery(text);
+  return true;
+}
+function cookAddIngredient(i){
+  const d = getDish(cookState.dishId);
+  const it = d && ingredientItems(d).find(x => x.i === i);
+  if (!it) return;
+  if (onGroceryList(it.text)) {
+    // tapping a ✓ takes it back off
+    saveGroceries(loadGroceries().filter(g => g.done || g.text.toLowerCase() !== it.text.toLowerCase()));
+  } else {
+    addToGroceries(it.text, d);
+  }
+  renderHobbies();
+}
+function cookAddAllIngredients(){
+  const d = getDish(cookState.dishId);
+  if (!d) return;
+  ingredientItems(d).forEach(it => addToGroceries(it.text, d));
+  renderHobbies();
+}
+
+// ── COOK MODE (doing) ──
+
+function startCooking(){
+  const id = cookState.dishId;
+  const p = loadCookProgress();
+  if (!p[id]) { p[id] = { ing:[], steps:[], started: getTodayKey() }; saveCookProgress(p); }
+  cookGo('cook', id);
+}
+
+function cookTick(kind, i){
+  const p = loadCookProgress();
+  const cur = p[cookState.dishId] || (p[cookState.dishId] = { ing:[], steps:[] });
+  const arr = cur[kind] || (cur[kind] = []);
+  const at = arr.indexOf(i);
+  if (at >= 0) arr.splice(at, 1); else arr.push(i);
+  saveCookProgress(p);
+  renderHobbies();
+}
+
+function cookFinish(){
+  cookState.cooking = true;
+  cookState.cookForm = { date: getTodayKey(), stars: 0, next: '' };
+  renderHobbies();
+  const el = document.querySelector('.cook-finish-anchor');
+  if (el && el.scrollIntoView) el.scrollIntoView({ block:'start' });
+}
+
+function cookStop(){
+  if (!confirm('Stop cooking without logging it?')) return;
+  const id = cookState.dishId;
+  clearDishProgress(id);
+  cookGo('dish', id);
+}
+
+function checklistHTML(groups, done, kind, numbered){
+  return groups.map(g => `<div class="cook-box">
+      ${g.title ? `<div class="cook-box-title">${escHtml(g.title)}</div>` : ''}
+      ${g.items.map((it, n) => {
+        const on = done.includes(it.i);
+        return `<button class="cook-check${on ? ' on' : ''}" onclick="cookTick('${kind}',${it.i})">
+          <span class="cook-check-dot">${on ? '✓' : (numbered ? n + 1 : '')}</span>
+          <span class="cook-check-text">${escHtml(it.text)}</span>
+        </button>`;
+      }).join('')}
+    </div>`).join('');
+}
+
+function renderCookMode(body){
+  const d = getDish(cookState.dishId);
+  if (!d) { cookBack(); return; }
+  cookEnsureWake();
+  const prog = dishProgress(d.id) || { ing:[], steps:[] };
+  const ing = parseRecipeLines(d.ingredients);
+  const steps = parseRecipeLines(d.steps);
+  const total = recipeItemCount(d.ingredients) + recipeItemCount(d.steps);
+  const done = prog.ing.length + prog.steps.length;
+
+  let h = `<div class="cook-mode-top">
+      <button class="gym-back" onclick="cookGo('dish','${d.id}')">&lsaquo; Dish</button>
+      ${total ? `<span class="cook-progress">${done} of ${total}</span>` : ''}
+    </div>
+    <div class="screen-title" style="padding-top:4px">${escHtml(d.name)}</div>
+    ${cookWake.on ? '<div class="cook-awake">Screen stays on while you cook</div>' : ''}`;
+
+  if ((d.links || []).length) {
+    h += `<div class="cook-mode-links">${d.links.map(u =>
+      `<a class="bar-chip" href="${escHtml(u)}" target="_blank" rel="noopener">${escHtml(linkLabel(u))}</a>`).join('')}</div>`;
+  }
+
+  if (!total) {
+    h += `<p class="sync-blurb" style="margin-top:16px">Nothing to tick off yet. Add ingredients and steps on the dish page, or cook from the link and finish when you're done.</p>`;
+  }
+
+  if (ing.length) {
+    h += `<div class="section-label" style="margin-top:20px">Ingredients</div>`;
+    h += checklistHTML(ing, prog.ing, 'ing', false);
+  }
+  if (steps.length) {
+    h += `<div class="section-label" style="margin-top:22px">Steps</div>`;
+    h += checklistHTML(steps, prog.steps, 'steps', true);
+  }
+
+  h += '<div class="cook-finish-anchor"></div>';
+  if (cookState.cooking) {
+    h += logPanelHTML('Finished ' + escHtml(d.name));
+  } else {
+    h += `<button class="cook-did" style="margin-top:22px" onclick="cookFinish()">Finish</button>
+          <button class="cook-more" style="margin-top:14px" onclick="cookStop()">Stop without logging</button>`;
+  }
+
+  body.innerHTML = h;
+}
+
+// ── GROCERIES (shopping) ──
+
+function addGroceryManual(){
+  const el = document.getElementById('groceryNew');
+  const v = el ? el.value.trim() : '';
+  if (!v) return;
+  addToGroceries(v, null);
+  renderHobbies();
+  const again = document.getElementById('groceryNew');
+  if (again) again.focus();
+}
+
+function groceryToggle(id){
+  const list = loadGroceries();
+  const g = list.find(x => x.id === id);
+  if (!g) return;
+  g.done = !g.done;
+  saveGroceries(list);
+  renderHobbies();
+}
+function groceryStartEdit(id){
+  cookState.groEdit = id;
+  renderHobbies();
+  const el = document.getElementById('groceryEditInput');
+  if (el) { el.focus(); el.select && el.select(); }
+}
+function grocerySaveEdit(){
+  const el = document.getElementById('groceryEditInput');
+  const v = el ? el.value.trim() : '';
+  if (!v) return groceryDelete();
+  const list = loadGroceries();
+  const g = list.find(x => x.id === cookState.groEdit);
+  if (g) { g.text = v; rememberGrocery(v); }
+  saveGroceries(list);
+  cookState.groEdit = null;
+  renderHobbies();
+}
+function groceryDelete(){
+  saveGroceries(loadGroceries().filter(x => x.id !== cookState.groEdit));
+  cookState.groEdit = null;
+  renderHobbies();
+}
+function groceryClearChecked(){
+  saveGroceries(loadGroceries().filter(x => !x.done));
+  renderHobbies();
+}
+
+function groceryDishLabel(g){
+  if (!g.dishId) return '';
+  const d = getDish(g.dishId);
+  return d ? d.name : (g.dishName || '');
+}
+
+function renderGroceries(body){
+  const list = loadGroceries();
+  const open = list.filter(g => !g.done);
+  const got = list.filter(g => g.done);
+  const past = loadGroceryPast().filter(p => !open.some(g => g.text.toLowerCase() === p.toLowerCase())).slice(0, 80);
+
+  let h = cookSwitchHTML();
+  h += `<div class="book-search" style="margin-top:18px">
+      <input type="text" id="groceryNew" list="groceryPast" placeholder="Add something" autocomplete="off"
+             onkeydown="if(event.key==='Enter')addGroceryManual()"/>
+      <button class="btn btn-add" onclick="addGroceryManual()">Add</button>
+    </div>
+    <datalist id="groceryPast">${past.map(p => `<option value="${escHtml(p)}"></option>`).join('')}</datalist>`;
+
+  if (!list.length) {
+    h += `<p class="sync-blurb" style="margin-top:16px">Nothing on the list. Add things as you think of them, or tap + next to a dish's ingredients.</p>`;
+    body.innerHTML = h;
+    return;
+  }
+
+  h += `<div class="gro-list">${open.map(groceryRowHTML).join('')}</div>`;
+  if (got.length) {
+    h += `<div class="section-label" style="margin-top:22px">Got it</div>
+          <div class="gro-list">${got.map(groceryRowHTML).join('')}</div>
+          <button class="sync-btn" style="width:100%;margin-top:12px" onclick="groceryClearChecked()">Clear checked</button>`;
+  }
+  h += `<p class="cook-hint" style="margin-top:16px;text-align:center">Tap to tick · press and hold to edit</p>`;
+
+  body.innerHTML = h;
+  bindGroceryRows(body);
+}
+
+function groceryRowHTML(g){
+  if (cookState.groEdit === g.id) {
+    return `<div class="gro-edit">
+      <input type="text" id="groceryEditInput" value="${escHtml(g.text)}" autocomplete="off"
+             onkeydown="if(event.key==='Enter')grocerySaveEdit()"/>
+      <div class="gro-edit-actions">
+        <button class="sync-btn gym-drop" onclick="groceryDelete()">Delete</button>
+        <button class="btn btn-add" onclick="grocerySaveEdit()">Save</button>
+      </div>
+    </div>`;
+  }
+  const label = groceryDishLabel(g);
+  return `<div class="gro-row${g.done ? ' done' : ''}" data-gid="${g.id}">
+    <span class="gro-dot">${g.done ? '✓' : ''}</span>
+    <span class="gro-text">${escHtml(g.text)}${label ? `<span class="gro-for">for ${escHtml(label)}</span>` : ''}</span>
+  </div>`;
+}
+
+// tap ticks, press-and-hold edits. Moving your thumb (scrolling) cancels both.
+const GRO_HOLD_MS = 450;
+function bindGroceryRows(root){
+  root.querySelectorAll('.gro-row').forEach(row => {
+    const id = row.dataset.gid;
+    let timer = null, held = false, startY = null;
+    const cancel = () => { clearTimeout(timer); timer = null; row.classList.remove('pressing'); };
+    row.addEventListener('pointerdown', e => {
+      held = false;
+      startY = typeof e.clientY === 'number' ? e.clientY : null;
+      row.classList.add('pressing');
+      timer = setTimeout(() => {
+        held = true;
+        row.classList.remove('pressing');
+        if (navigator.vibrate) { try { navigator.vibrate(10); } catch {} }
+        groceryStartEdit(id);
+      }, GRO_HOLD_MS);
+    });
+    row.addEventListener('pointermove', e => {
+      if (timer && startY !== null && typeof e.clientY === 'number' && Math.abs(e.clientY - startY) > 8) cancel();
+    });
+    row.addEventListener('pointerup', cancel);
+    row.addEventListener('pointercancel', cancel);
+    row.addEventListener('pointerleave', cancel);
+    row.addEventListener('contextmenu', e => e.preventDefault());
+    row.addEventListener('click', () => {
+      if (held) { held = false; return; }
+      groceryToggle(id);
+    });
+  });
+}
+
 // ── KEEP SCREEN ON ──
-// Only while a dish page is open. The phone drops the lock itself when the app
-// is hidden, so it's re-requested on return.
+// Automatic in cook mode, released on leaving it. The phone drops the lock
+// itself when the app is hidden, so it's re-requested on return.
 
 let cookWake = { on:false, lock:null };
 
 function cookWakeSupported(){ return typeof navigator !== 'undefined' && 'wakeLock' in navigator; }
 
+function cookEnsureWake(){
+  if (!cookWakeSupported() || cookWake.on) return;
+  cookWake.on = true;
+  cookRequestWake();
+}
+
 async function cookRequestWake(){
   try {
     cookWake.lock = await navigator.wakeLock.request('screen');
-    cookWake.lock.addEventListener && cookWake.lock.addEventListener('release', () => { cookWake.lock = null; });
-  } catch { cookWake.on = false; renderHobbies(); }
-}
-
-function cookToggleWake(){
-  if (cookWake.on) { cookReleaseWake(); renderHobbies(); return; }
-  cookWake.on = true;
-  cookRequestWake();
-  renderHobbies();
+    if (cookWake.lock && cookWake.lock.addEventListener)
+      cookWake.lock.addEventListener('release', () => { cookWake.lock = null; });
+  } catch { cookWake.lock = null; }
 }
 
 function cookReleaseWake(){
@@ -505,7 +927,7 @@ if (typeof document !== 'undefined') {
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible' && cookWake.on && !cookWake.lock) cookRequestWake();
   });
-  // leaving for another tab ends it
+  // leaving for another tab ends it; coming back to cook mode starts it again
   document.addEventListener('click', e => {
     if (cookWake.on && e.target.closest && e.target.closest('.tabbtn')) cookReleaseWake();
   }, true);
