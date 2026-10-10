@@ -3185,3 +3185,16 @@
   text-transform: none;
   color: var(--muted);
 }
+
+/* warm-up — a row above the first exercise, ticked rather than logged */
+.gym-warm .gym-warm-cb { color: var(--white); font-size: 0.8rem; margin-right: 6px; }
+.gym-warm.done .gym-warm-cb { background: var(--green); border-color: var(--green); }
+.gym-warm-list { margin: 2px 0 0; padding-left: 18px; color: var(--ink); font-size: 0.95rem; line-height: 1.55; }
+.gym-warm-empty { margin: 2px 0 0; color: var(--muted); font-size: 0.85rem; font-style: italic; }
+.gym-warm-text {
+  width: 100%; box-sizing: border-box; padding: 10px 12px;
+  border: 1.5px solid var(--green); border-radius: 3px; background: var(--white);
+  color: var(--ink); font-family: 'EB Garamond', serif; font-size: 16px; line-height: 1.45;
+  outline: none; resize: none;
+}
+.gym-warm-actions { display: flex; gap: 18px; }

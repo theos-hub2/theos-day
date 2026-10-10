@@ -170,6 +170,8 @@
     barOpen: {},
     moreOpen: {},
     pairOpen: {},
+    warmOpen: false,
+    warmEditing: false,
     bodyOpen: false,
     optionsOpen: false,
     chipsOpen: false,
@@ -1019,6 +1021,8 @@
             <div class="tp-track"><div class="tp-fill" style="width:${pct}%;background:${color}"></div></div>
           </div>`;
 
+    h += warmupHTML(sess);
+
     list.forEach(ex => {
       const base = slug(ex.name);
       const mixed = mixEnabled(ex);
@@ -1396,6 +1400,81 @@
 
   function removeSet(key, i){
     writeSession(s => { if (s.exercises[key]) s.exercises[key].splice(i,1); });
+    renderGym();
+  }
+
+  // ── WARM-UP ──
+  // Two lists, Upper and Lower, written by hand: free text, one move per line,
+  // no sets or reps — the point is doing it, not logging it. A session saves
+  // only whether you warmed up (session.warm), never the list, so editing the
+  // warm-up can't rewrite what a past day says.
+
+  function loadWarmups(){
+    try { return JSON.parse(localStorage.getItem('theosWarmups')) || {}; }
+    catch(e){ return {}; }
+  }
+  function warmKind(workout){ return /^(lower|legs)$/i.test(workout || '') ? 'lower' : 'upper'; }
+  function warmMoves(kind){
+    return (loadWarmups()[kind] || '').split('\n').map(x => x.trim()).filter(Boolean);
+  }
+
+  function warmupHTML(sess){
+    const kind = warmKind(gymState.workout);
+    const label = kind === 'lower' ? 'Lower' : 'Upper';
+    const moves = warmMoves(kind);
+    const done = !!(sess && sess.warm);
+    const open = gymState.warmOpen;
+    let h = `<div class="gym-ex gym-warm${done ? ' logged done' : ''}">
+              <div class="gym-ex-head" onclick="toggleWarmup()">
+                <div class="gym-ex-main">
+                  <div class="gym-ex-name">Warm-up</div>
+                  <div class="gym-ex-sub">${label}${moves.length ? ' · ' + moves.length + ' move' + (moves.length === 1 ? '' : 's') : ' · not written yet'}</div>
+                </div>
+                <div class="res-cb gym-warm-cb" onclick="event.stopPropagation(); toggleWarmDone()">${done ? '✓' : ''}</div>
+              </div>`;
+    if (open) {
+      h += '<div class="gym-sets">';
+      if (gymState.warmEditing) {
+        h += `<textarea id="warmText" class="gym-warm-text" rows="${Math.max(4, moves.length + 1)}"
+                        placeholder="One move per line">${escHtml(moves.join('\n'))}</textarea>
+              <div class="gym-warm-actions">
+                <button class="gym-mix-toggle" onclick="saveWarmup()">Save ${label.toLowerCase()} warm-up</button>
+                <button class="gym-mix-toggle" onclick="editWarmup(false)">Cancel</button>
+              </div>`;
+      } else {
+        h += moves.length
+          ? '<ul class="gym-warm-list">' + moves.map(m => `<li>${escHtml(m)}</li>`).join('') + '</ul>'
+          : `<p class="gym-warm-empty">Write the moves once and they'll show on every ${label.toLowerCase()} day.</p>`;
+        h += `<button class="gym-mix-toggle" onclick="editWarmup(true)">${moves.length ? 'Edit' : 'Write'} ${label.toLowerCase()} warm-up</button>`;
+      }
+      h += '</div>';
+    }
+    return h + '</div>';
+  }
+
+  function toggleWarmup(){
+    gymState.warmOpen = !gymState.warmOpen;
+    gymState.warmEditing = false;
+    renderGym();
+  }
+  function editWarmup(on){
+    gymState.warmEditing = on;
+    renderGym();
+    if (on) { const t = document.getElementById('warmText'); if (t) t.focus(); }
+  }
+  function saveWarmup(){
+    const t = document.getElementById('warmText');
+    if (!t) return;
+    const all = loadWarmups();
+    all[warmKind(gymState.workout)] = t.value.split('\n').map(x => x.trim()).filter(Boolean).join('\n');
+    localStorage.setItem('theosWarmups', JSON.stringify(all));
+    gymState.warmEditing = false;
+    renderGym();
+  }
+  function toggleWarmDone(){
+    writeSession(s => { if (s.warm) delete s.warm; else s.warm = true; });
+    // ticking it is the end of the warm-up, so fold it away
+    if (currentSession().warm) { gymState.warmOpen = false; gymState.warmEditing = false; }
     renderGym();
   }
 
