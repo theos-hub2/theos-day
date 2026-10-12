@@ -17,9 +17,15 @@
 //    and a month that broke none simply has no highlights.
 //  · No month-vs-last-month arrows. The year chart is the only comparison, and
 //    you have to hold it to see the figures.
-//  · Gym, reading and drawing are measured against the streak schedule you set
-//    ("19 of 21 planned"), so a short month never reads worse than a long one.
-//  · Asterisk days still count — the asterisk is context, as it is everywhere.
+//  · Habits are the heart of it. Each is judged as the day bar judges it: fixed
+//    habits on the days they were due, flexible ones against their weekly
+//    target, trip-paused days left out. Hobby sections then show only depth
+//    (bests, books, hours, dishes) — the "how often" lives in the habit list.
+//  · Biggest day = the most done, not the highest %, so an empty Sunday at
+//    100% never beats a full day.
+//  · Trips and asterisk days are context, listed under the calendar; neither
+//    changes a number beyond what the day bar already does.
+//  · Reviews frozen before habits (v1) keep their own shape and still render.
 
 const REVIEW_KEY = 'theosReviews';
 const REVIEW_MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -144,19 +150,15 @@ function plannedFor(name, k){
 function gymFigures(k){
   if (typeof loadGymLog !== 'function') return null;
   const log = loadGymLog();
-  const days = taskDays(k, 'gym');
-  Object.keys(log).forEach(d => {
-    if (!inMonth(d, k)) return;
-    const ex = log[d].exercises || {};
-    if (Object.values(ex).some(sets => (sets || []).some(hasRep))) days.add(d);
-  });
-  const everLogged = Object.keys(log).some(d => d < nextMonthKey(k) + '-01');
-  if (!days.size && !everLogged) return null;
+  const start = k + '-01';
+  const loggedIn = Object.keys(log).some(d => inMonth(d, k) &&
+    Object.values(log[d].exercises || {}).some(sets => (sets || []).some(hasRep)));
+  if (!loggedIn) return null;
 
   // new bests: the month's top set beat everything logged before it
   const keys = new Set();
   Object.values(log).forEach(s => Object.keys(s.exercises || {}).forEach(x => keys.add(x)));
-  const start = k + '-01', prs = [];
+  const prs = [];
   keys.forEach(key => {
     const hist = exerciseHistory(key);
     const before = hist.filter(p => p.date < start), during = hist.filter(p => inMonth(p.date, k));
@@ -174,28 +176,22 @@ function gymFigures(k){
     const mornings = Object.keys(w).filter(d => inMonth(d, k) && w[d].morning != null).sort();
     if (mornings.length >= 2) bw = [fmtNum(w[mornings[0]].morning), fmtNum(w[mornings[mornings.length - 1]].morning)];
   }
-  return { sessions: days.size, planned: plannedFor('gym', k), prs, bw };
+  return { prs, bw };
 }
 
 function readingFigures(k){
   if (typeof loadBooks !== 'function') return null;
-  const books = loadBooks();
-  const days = taskDays(k, 'read');
-  books.forEach(b => bookSessions(b).forEach(d => { if (inMonth(d, k)) days.add(d); }));
-  const finished = books.filter(b => b.status === 'finished' && inMonth(b.finished, k))
+  const finished = loadBooks().filter(b => b.status === 'finished' && inMonth(b.finished, k))
     .map(b => ({ title: b.title || '', author: b.author || '', pages: Number(b.pages) || 0, color: bookColor(b.id) }));
   const quotes = (typeof loadQuotes === 'function' ? loadQuotes() : []).filter(q => inMonth(q.date, k)).length;
-  if (!days.size && !finished.length && !quotes) return null;
-  return { days: days.size, planned: plannedFor('read', k), books: finished,
-           pages: finished.reduce((s, b) => s + b.pages, 0), quotes };
+  if (!finished.length && !quotes) return null;
+  return { books: finished, pages: finished.reduce((s, b) => s + b.pages, 0), quotes };
 }
 
 function drawingFigures(k){
   if (typeof loadSketches !== 'function') return null;
   const sessions = loadSketches().filter(s => inMonth(s.date, k));
-  const drawDays = taskDays(k, 'draw');
-  sessions.forEach(s => drawDays.add(s.date));
-  if (!sessions.length && !drawDays.size) return null;
+  if (!sessions.length) return null;
   const mins = sessions.reduce((a, s) => a + (Number(s.minutes) || 0), 0);
   // a session either holds sketch objects (with tags) or just a sketch count
   let sketches = 0;
@@ -207,7 +203,102 @@ function drawingFigures(k){
     addTags(s.tags);
   });
   const top = Object.entries(tags).sort((a, b) => b[1] - a[1]).slice(0, 3);
-  return { sessions: drawDays.size, planned: plannedFor('draw', k), hours: rv1(mins / 60), sketches, tags: top };
+  return { hours: rv1(mins / 60), sketches, tags: top };
+}
+
+function cookingFigures(k){
+  if (typeof loadDishes !== 'function') return null;
+  const dishes = loadDishes();
+  let cooks = 0, fresh = 0, best = null;
+  dishes.forEach(d => {
+    const all = (d.attempts || []).filter(a => a.date).sort((a, b) => a.date < b.date ? -1 : 1);
+    const here = all.filter(a => inMonth(a.date, k));
+    if (!here.length) return;
+    cooks += here.length;
+    if (all[0] && inMonth(all[0].date, k)) fresh++;          // first time ever cooked
+    here.forEach(a => { if (a.stars && (!best || a.stars > best.stars)) best = { name: d.name || '', stars: a.stars }; });
+  });
+  if (!cooks) return null;
+  return { cooks, fresh, best };
+}
+
+// ── HABITS ──
+// Judged exactly as the day bar judges them: fixed habits on the days they
+// were due (a trip-paused day isn't expected, but a tick on it still counts);
+// flexible habits against their weekly target, with paused days taken out.
+
+function habitLive(h, k){
+  const start = k + '-01', end = k + '-' + String(daysInMonthKey(k)).padStart(2, '0');
+  return (h.since || '0000') <= end && (!h.ended || h.ended > start);
+}
+
+// longest run of due days ticked; trips never protect a run, as in streaks
+function habitRuns(h, data, uptoKey){
+  const keys = Object.keys(data).filter(x => x <= uptoKey).sort();
+  if (!keys.length) return [];
+  const runs = [];
+  let cur = 0, from = null, prev = null;
+  const d = new Date(keys[0] + 'T00:00:00'), stop = new Date(uptoKey + 'T00:00:00');
+  for (; d <= stop; d.setDate(d.getDate() + 1)){
+    const key = ymd(d);
+    if (!habitInRange(h, key) || !habitDue(h, key)) continue;
+    if (habitDoneOn(h, key, data)){ if (!cur) from = key; cur++; prev = key; }
+    else { if (cur) runs.push({ len: cur, from, to: prev }); cur = 0; }
+  }
+  if (cur) runs.push({ len: cur, from, to: prev });
+  return runs;
+}
+
+function habitFigures(k, data){
+  const dim = daysInMonthKey(k), out = [];
+  allHabits().forEach(h => {
+    if (!habitLive(h, k)) return;
+    const sch = habitSch(h);
+    let done = 0, expected = 0, open = 0;
+    for (let d = 1; d <= dim; d++){
+      const key = k + '-' + String(d).padStart(2, '0');
+      if (!habitInRange(h, key)) continue;
+      const ticked = habitDoneOn(h, key, data);
+      if (isFlexible(sch)){ if (ticked) done++; if (!habitPaused(h, key)) open++; continue; }
+      const exp = habitExpected(h, key);
+      if (exp || ticked){ expected++; if (ticked) done++; }
+    }
+    let target = expected, weeks = null;
+    if (isFlexible(sch)){
+      target = sch.type === 'biweekly' ? Math.max(1, Math.round(open / 14))
+                                       : Math.max(1, Math.round((sch.times || 1) * open / 7));
+      if (sch.type === 'weekly'){
+        // Sunday-start weeks that begin in this month and finished inside it
+        let hit = 0, all = 0;
+        for (let d = 1; d + 6 <= dim; d++){
+          const key = k + '-' + String(d).padStart(2, '0');
+          if (new Date(key + 'T00:00:00').getDay() !== 0) continue;
+          all++;
+          let n = 0;
+          for (let i = 0; i < 7; i++) if (habitDoneOn(h, addDaysKey(key, i), data)) n++;
+          if (n >= (sch.times || 1)) hit++;
+        }
+        if (all) weeks = [hit, all];
+      }
+    }
+    if (!target && !done) return;
+    const end = k + '-' + String(dim).padStart(2, '0');
+    let run = 0, record = false;
+    if (!isFlexible(sch)){
+      const runs = habitRuns(h, data, end);
+      const inside = runs.filter(r => r.to >= k + '-01');
+      run = inside.length ? Math.max(...inside.map(r => r.len)) : 0;
+      const before = runs.filter(r => r.to < k + '-01');
+      record = run >= 3 && before.length > 0 && run > Math.max(...before.map(r => r.len));
+    }
+    out.push({ name: h.name, avoid: h.kind === 'avoid', done, target,
+               weeks, run, record, flexible: isFlexible(sch) });
+  });
+  return out;
+}
+function habitRate(list){
+  const t = list.reduce((s, x) => s + x.target, 0);
+  return t ? rvPct(list.reduce((s, x) => s + Math.min(x.done, x.target), 0) / t) : null;
 }
 
 function aimsFor(k){
@@ -219,35 +310,61 @@ function aimsFor(k){
   } catch { return []; }
 }
 
+function tripsIn(k){
+  if (typeof tripsCached !== 'function') return [];
+  const start = k + '-01', end = k + '-' + String(daysInMonthKey(k)).padStart(2, '0');
+  return tripsCached().filter(t => t.start <= end && tripLastDay(t) >= start).map(t => ({
+    place: t.place || 'Trip', start: t.start < start ? start : t.start,
+    end: tripLastDay(t) > end ? end : tripLastDay(t), paused: (t.paused || []).length,
+    color: tripColor(t)
+  }));
+}
+
+// the day with the most done; a tie goes to the fuller day, then the earlier
+function biggestDay(days){
+  let best = null;
+  days.forEach(d => {
+    if (!d.done) return;
+    if (!best || d.done > best.done || (d.done === best.done && d.done / d.total > best.done / best.total)) best = d;
+  });
+  return best ? { key: best.key, done: best.done, total: best.total } : null;
+}
+
 // ── BUILDING A REVIEW ──
 
 // the headline numbers for any month: from its frozen review if there is one
 function monthTotals(k){
   const saved = loadReviews()[k];
-  if (saved) return saved.totals;
-  const days = monthDays(k);
-  const g = gymFigures(k), d = drawingFigures(k);
-  return { comp: rvPct(avgCompletionOf(days)), full: fullDaysOf(days), tpd: rv1(tasksPerDayOf(days)),
-           gym: g ? g.sessions : 0, drawHours: d ? d.hours : 0 };
+  if (saved && saved.totals && saved.totals.habits !== undefined) return saved.totals;
+  const days = monthDays(k), d = drawingFigures(k);
+  const live = { comp: rvPct(avgCompletionOf(days)), full: fullDaysOf(days),
+                 habits: habitRate(habitFigures(k, loadData())), drawHours: d ? d.hours : 0 };
+  // an older review keeps its own completion figures; only the gaps are filled
+  return saved && saved.totals ? Object.assign(live, { comp: saved.totals.comp, full: saved.totals.full }) : live;
 }
 
 function buildReview(k){
+  const data = loadData();
   const days = monthDays(k);
-  const totals = { comp: rvPct(avgCompletionOf(days)), full: fullDaysOf(days), tpd: rv1(tasksPerDayOf(days)) };
-  const gym = gymFigures(k), reading = readingFigures(k), drawing = drawingFigures(k);
-  totals.gym = gym ? gym.sessions : 0;
-  totals.drawHours = drawing ? drawing.hours : 0;
+  const habits = habitFigures(k, data);
+  const drawing = drawingFigures(k), gym = gymFigures(k), reading = readingFigures(k), cooking = cookingFigures(k);
+  let tasksDone = 0, tasksAll = 0;
+  days.forEach(d => { const c = dayCounts(d.key, data); tasksAll += c.tasks.length; tasksDone += c.tasks.filter(t => t.done).length; });
+  const totals = { comp: rvPct(avgCompletionOf(days)), full: fullDaysOf(days),
+                   habits: habitRate(habits), drawHours: drawing ? drawing.hours : 0 };
 
   // records, judged only against earlier months that have data
   const earlier = dataMonths().filter(x => x < k).map(monthTotals);
   const records = [];
   if (earlier.length){
-    const beats = (v, f) => v > 0 && earlier.every(e => v > f(e));
+    const beats = (v, f) => v != null && v > 0 && earlier.every(e => f(e) == null || v > f(e));
     if (beats(totals.comp, e => e.comp)) records.push({ head: `Your best month so far: ${totals.comp}%.`, line: `Best month so far at <b>${totals.comp}%</b>` });
+    if (beats(totals.habits, e => e.habits)) records.push({ head: `Your best month for habits: ${totals.habits}%.`, line: `Best habits month yet: <b>${totals.habits}%</b>` });
     if (beats(totals.full, e => e.full)) records.push({ head: `Your most 100% days yet: ${totals.full}.`, line: `Most 100% days yet: <b>${totals.full}</b>` });
     if (drawing && beats(totals.drawHours, e => e.drawHours || 0)) records.push({ head: `Your most drawing yet: ${totals.drawHours} hours.`, line: `Most drawing yet: <b>${totals.drawHours} hours</b>` });
-    if (gym && beats(totals.gym, e => e.gym || 0)) records.push({ head: `Your most gym sessions yet: ${totals.gym}.`, line: `Most gym sessions yet: <b>${totals.gym}</b>` });
   }
+  habits.filter(h => h.record).forEach(h => records.push({
+    head: `Your longest ${h.name} streak yet: ${h.run} days.`, line: `Longest <b>${escHtml(h.name)}</b> streak yet: <b>${h.run} days</b>` }));
   const extras = [];
   const run = longest100Run(days);
   if (run.len >= 2) extras.push(`<b>${run.len} days</b> in a row at 100%, ${reviewShortDate(run.from)}–${Number(run.to.slice(8))}`);
@@ -260,21 +377,29 @@ function buildReview(k){
     const mk = monthKeyOf(y, m0);
     year.push(mk === k ? totals.comp : (mk < k && monthHasData(mk) ? monthTotals(mk).comp : null));
   }
-  const yearDays = [];
-  for (let m0 = 0; m0 < 12; m0++){ const mk = monthKeyOf(y, m0); if (mk <= k) yearDays.push(...monthDays(mk)); }
+  const yearDays = [], yearHabits = [];
+  for (let m0 = 0; m0 < 12; m0++){
+    const mk = monthKeyOf(y, m0);
+    if (mk > k || !monthHasData(mk)) continue;
+    yearDays.push(...monthDays(mk));
+    yearHabits.push(...(mk === k ? habits : habitFigures(mk, data)));
+  }
   const firstMonth = dataMonths().find(x => x.startsWith(y + '-'));
   const partialYear = !!firstMonth && firstMonth > y + '-01';
 
   return {
-    v: 1, frozenOn: getTodayKey(), totals,
+    v: 2, frozenOn: getTodayKey(), totals,
     headline: records.length ? records[0].head : `${totals.comp}% done across ${withTasks(days).length} days.`,
     highlights: records.slice(1).map(r => r.line).concat(extras),
     hadRecord: records.length > 0,
-    asterisks: asteriskCount(days),
     days: days.map(d => ({ d: d.d, total: d.total, done: d.done, asterisk: d.asterisk })),
-    gym, reading, drawing, aims: aimsFor(k),
+    biggest: biggestDay(days),
+    asterisks: asteriskCount(days),
+    trips: tripsIn(k),
+    habits, tasks: { done: tasksDone, all: tasksAll },
+    gym, reading, drawing, cooking, aims: aimsFor(k),
     year: { values: year, partial: partialYear, comp: rvPct(avgCompletionOf(yearDays)),
-            full: fullDaysOf(yearDays), tpd: rv1(tasksPerDayOf(yearDays)),
+            habits: habitRate(yearHabits), full: fullDaysOf(yearDays),
             asterisks: asteriskCount(yearDays).total }
   };
 }
@@ -332,9 +457,11 @@ function openReview(k){
   const firstOpen = !all[k];
   if (firstOpen){ all[k] = buildReview(k); saveReviews(all); }
   const R = all[k];
+  const v2 = (R.v || 1) >= 2;          // v1 reviews (frozen before habits) keep their own shape
   const { y, m0 } = parseMonthKey(k);
-  const name = REVIEW_MONTHS[m0], dim = R.days.length;
+  const name = REVIEW_MONTHS[m0];
   const isLatest = k === prevMonthKey(currentMonthKey());
+  const bigD = R.biggest ? Number(R.biggest.key.slice(8)) : null;
 
   // the month itself, shaded by completion with the % written in
   let heat = ['Su','Mo','Tu','We','Th','Fr','Sa'].map(x => `<div class="rv-dn">${x}</div>`).join('');
@@ -342,12 +469,18 @@ function openReview(k){
   R.days.forEach(d => {
     if (!d.total){ heat += `<div class="rv-c rv-none"><span class="rv-dnum">${d.d}</span></div>`; return; }
     const f = d.done / d.total, a = 0.08 + f * 0.92, light = a <= 0.5;
-    heat += `<div class="rv-c" style="background:rgba(26,77,46,${a.toFixed(2)});color:${light ? '#1a4d2e' : '#fafaf8'}">
+    heat += `<div class="rv-c${d.d === bigD ? ' rv-big' : ''}" style="background:rgba(26,77,46,${a.toFixed(2)});color:${light ? '#1a4d2e' : '#fafaf8'}">
                <span class="rv-dnum">${d.d}${d.asterisk ? ' ✱' : ''}</span><span class="rv-dpct">${rvPct(f)}%</span></div>`;
   });
-  const astLine = asteriskText(R.asterisks);
 
-  const T = R.totals, g = R.gym, r = R.reading, dr = R.drawing;
+  const keyLines = ['Lighter means less done'];
+  if (R.biggest) keyLines.push(`<b>Biggest day:</b> ${reviewShortDate(R.biggest.key)} · ${R.biggest.done} of ${R.biggest.total} done`);
+  (R.trips || []).forEach(t => keyLines.push(`<span class="trip-swatch trip-bg-${t.color}"></span>${escHtml(t.place)}, ${reviewShortDate(t.start)}–${
+    t.end.slice(0, 7) === t.start.slice(0, 7) ? Number(t.end.slice(8)) : reviewShortDate(t.end)}${t.paused ? ` · ${t.paused} habit${t.paused === 1 ? '' : 's'} paused` : ''}`));
+  const astLine = asteriskText(R.asterisks);
+  if (astLine) keyLines.push(astLine);
+
+  const T = R.totals, g = R.gym, r = R.reading, dr = R.drawing, ck = R.cooking;
   let h = `<div class="rv-in">
     <div class="rv-top"><span class="rv-kicker">Month in review</span>
       <button class="rv-close" onclick="closeReview()" aria-label="Close">×</button></div>
@@ -357,8 +490,7 @@ function openReview(k){
       <div class="rv-year">${y}</div>
       <div class="rv-headline">${R.headline}</div>
       <div class="rv-heat">${heat}</div>
-      <div class="rv-key">Lighter means less done</div>
-      ${astLine ? `<div class="rv-key">${astLine}</div>` : ''}
+      ${keyLines.map(l => `<div class="rv-key">${l}</div>`).join('')}
     </div>`;
 
   if (R.highlights.length){
@@ -367,22 +499,50 @@ function openReview(k){
           </div>`;
   }
 
+  const stat = (n, label, attrs) => `<div class="rv-stat"><div class="rv-stat-n" ${attrs}>${n}</div><div class="rv-stat-l">${label}</div></div>`;
   h += `<div class="rv-stats">
-          <div class="rv-stat"><div class="rv-stat-n" data-count="${T.comp}" data-suffix="%" style="color:${getProgressColor(T.comp)}">${T.comp}%</div><div class="rv-stat-l">average completion</div></div>
-          <div class="rv-stat"><div class="rv-stat-n" data-count="${T.full}">${T.full}</div><div class="rv-stat-l">100% days</div></div>
-          <div class="rv-stat"><div class="rv-stat-n" data-count="${T.tpd}" data-dec="1">${T.tpd}</div><div class="rv-stat-l">tasks a day</div></div>
+          ${stat(T.comp + '%', 'completion', `data-count="${T.comp}" data-suffix="%" style="color:${getProgressColor(T.comp)}"`)}
+          ${v2 && T.habits != null
+            ? stat(T.habits + '%', 'habits', `data-count="${T.habits}" data-suffix="%" style="color:${getProgressColor(T.habits)}"`)
+            : stat(T.tpd, 'tasks a day', `data-count="${T.tpd}" data-dec="1"`)}
+          ${stat(T.full, '100% days', `data-count="${T.full}"`)}
         </div>`;
 
-  if (g){
+  // habits: the heart of it
+  if (v2 && R.habits && R.habits.length){
+    h += `<div class="rv-sec"><div class="section-label">Habits</div>
+      ${R.habits.map(x => {
+        const p = Math.min(100, rvPct(x.done / Math.max(1, x.target))), c = getProgressColor(p);
+        const verb = x.avoid ? 'held' : '';
+        const sub = [];
+        if (x.weeks) sub.push(`${x.weeks[0]} of ${x.weeks[1]} weeks on target`);
+        if (x.run >= 2) sub.push(`best run ${x.run} days`);
+        return `<div class="rv-habit">
+          <div class="rv-plan-head"><span class="rv-plan-txt"><b>${escHtml(x.name)}</b> · ${verb ? verb + ' ' : ''}${x.done} of ${x.target}</span>
+            <span class="rv-plan-pct" style="color:${c}">${p}%</span></div>
+          <div class="rv-track"><div class="rv-fill" data-w="${p}" style="width:${p}%;background:${c}"></div></div>
+          ${sub.length ? `<div class="rv-habit-sub">${sub.join(' · ')}</div>` : ''}
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+  if (v2 && R.tasks && R.tasks.all){
+    h += `<div class="rv-sec"><div class="section-label">Tasks</div>
+            ${rvRow('Done', `${R.tasks.done} of ${R.tasks.all}`)}
+          </div>`;
+  }
+
+  // hobbies: depth only (v1 reviews still show their planned-session bars)
+  if (g && (g.prs.length || g.bw || g.planned)){
     h += `<div class="rv-sec"><div class="section-label">Gym</div>
-            ${rvPlan(g.planned ? `${g.sessions} of ${g.planned} planned sessions` : `${g.sessions} sessions`, g.sessions, g.planned)}
+            ${g.planned ? rvPlan(`${g.sessions} of ${g.planned} planned sessions`, g.sessions, g.planned) : ''}
             ${rvRow('New bests', g.prs.length)}
             ${g.bw ? rvRow('Morning weight', `${g.bw[0]} → ${g.bw[1]} kg`) : ''}
           </div>`;
   }
   if (r){
     h += `<div class="rv-sec"><div class="section-label">Reading</div>
-            ${rvPlan(r.planned ? `Read on ${r.days} of ${r.planned === dim ? dim + ' days' : r.planned + ' planned days'}` : `Read on ${r.days} days`, r.days, r.planned)}
+            ${r.planned ? rvPlan(`Read on ${r.days} of ${r.planned} days`, r.days, r.planned) : ''}
             ${r.books.length ? `<div class="rv-books">${r.books.map(b =>
               `<div class="rv-book"><span class="rv-spine" style="background:${b.color}"></span><span>${escHtml(b.title)} <em>${escHtml(b.author)}</em></span></div>`).join('')}</div>` : ''}
             ${rvRow('Pages, from finished books', r.pages)}
@@ -391,10 +551,17 @@ function openReview(k){
   }
   if (dr){
     h += `<div class="rv-sec"><div class="section-label">Drawing</div>
-            ${rvPlan(dr.planned ? `${dr.sessions} of ${dr.planned} planned sessions` : `${dr.sessions} sessions`, dr.sessions, dr.planned)}
+            ${dr.planned ? rvPlan(`${dr.sessions} of ${dr.planned} planned sessions`, dr.sessions, dr.planned) : ''}
             ${rvRow('Time drawing', dr.hours + ' hours')}
             ${rvRow('Sketches', dr.sketches)}
             ${dr.tags.length ? `<div class="rv-tags">${dr.tags.map(t => `<span class="rv-tag">${escHtml(t[0])} <b>${t[1]}</b></span>`).join('')}</div>` : ''}
+          </div>`;
+  }
+  if (ck){
+    h += `<div class="rv-sec"><div class="section-label">Cooking</div>
+            ${rvRow('Times cooked', ck.cooks)}
+            ${rvRow('New dishes', ck.fresh)}
+            ${ck.best ? rvRow('Best cook', `${escHtml(ck.best.name)} <span class="rv-stars">${'★'.repeat(ck.best.stars)}</span>`) : ''}
           </div>`;
   }
   if (R.aims.length){
@@ -414,8 +581,9 @@ function openReview(k){
           <div class="rv-bar-lbl">${REVIEW_MONTHS.map(x => `<span>${x[0]}</span>`).join('')}</div>
           <div class="rv-note" style="margin-bottom:10px">Hold the chart to see each month's %</div>
           ${rvRow('Average completion', Y.comp + '%')}
+          ${Y.habits != null ? rvRow('Habits', Y.habits + '%') : ''}
           ${rvRow('100% days', Y.full)}
-          ${rvRow('Tasks a day', Y.tpd)}
+          ${Y.tpd != null && !v2 ? rvRow('Tasks a day', Y.tpd) : ''}
           ${Y.asterisks ? rvRow('Asterisk days', Y.asterisks) : ''}
         </div>
 

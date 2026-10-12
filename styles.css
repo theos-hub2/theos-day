@@ -3351,3 +3351,13 @@
 }
 .gro-edit-actions { display: flex; gap: 8px; margin-top: 8px; }
 .gro-edit-actions > * { flex: 1; }
+
+/* month in review: habit-focused additions */
+.rv-c.rv-big { box-shadow:0 0 0 2px var(--white), 0 0 0 4px var(--ink); position:relative; z-index:1; }
+.rv-key b { color:var(--green); font-weight:700; }
+.rv-key .trip-swatch { vertical-align:-1px; margin-right:6px; }
+.rv-habit { margin-bottom:4px; }
+.rv-habit .rv-plan-txt b { color:var(--ink); font-weight:600; }
+.rv-habit .rv-track { margin-bottom:4px; }
+.rv-habit-sub { font-size:0.85rem; color:var(--muted); margin-bottom:10px; }
+.rv-stars { color:var(--green); letter-spacing:-1px; }
