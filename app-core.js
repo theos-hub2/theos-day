@@ -632,7 +632,8 @@ el.innerHTML = content;
         const i = t.originalIndex;
         const div=document.createElement('div');
         div.className='task-item'+(t.done?' done':'');
-        const fn=key===todayKey?`onclick="toggleCalTask('${key}',${i})"`:'';
+        // today and yesterday can be ticked; older days are as you left them
+        const fn=(key===getTodayKey()||key===addDaysKey(getTodayKey(),-1))?`onclick="toggleCalTask('${key}',${i})"`:'';
         div.innerHTML=`
           <span class="task-num">${String(i+1).padStart(2,'0')}</span>
           <div class="custom-cb" ${fn}>${t.done?'✓':''}</div>
@@ -803,7 +804,8 @@ el.innerHTML = content;
     saveDay(key,day);
     afterTaskToggle(key, day.tasks[i]);
     renderDayView(key);
-    if(key===todayKey)renderToday();
+    renderCalendar();
+    if(key===getTodayKey()||key===addDaysKey(getTodayKey(),-1))renderToday();
   }
   
   function deleteCalTask(key,i){

@@ -121,9 +121,10 @@ function longest100Run(days){
 function taskDays(k, name){
   const data = loadData(), out = new Set();
   const habit = habitNamed(name);
+  if (habit) habitDays(habit, data).forEach(d => { if (inMonth(d, k)) out.add(d); });
   Object.keys(data).forEach(d => {
     if (!inMonth(d, k)) return;
-    if (habit && dayHabitIds(data[d]).includes(habit.id)) { out.add(d); return; }
+    if (habit) return;
     if (data[d].tasks && data[d].tasks.some(t => t.done && normalizeTaskName(t.text) === name)) out.add(d);
   });
   return out;

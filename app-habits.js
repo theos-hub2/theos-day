@@ -13,6 +13,11 @@
 //    never due — it counts on the days you tick it, so rest days cost nothing.
 //  · "Avoid" habits (no drinking) are ticked too. The tick means "held the line
 //    today". A blank day means not reported yet — nothing is assumed.
+//  · Unless the avoid habit "starts ticked" (h.startTicked = the date it was
+//    switched on). From that date, every due day reads as done and you untick
+//    on a slip; slips live on the day (theosDayData[key].slips = [id, …]).
+//    Switching it off writes the auto-ticks out as real ticks, so turning the
+//    setting off never rewrites what those days said.
 //  · Today and yesterday never break a streak. Fill yesterday in the morning.
 //  · Streaks come from habits. Days before habits existed still count: a task
 //    with the habit's name, ticked on a past day, reads as a tick. Old task
@@ -110,8 +115,17 @@ function legacyTaskDone(h, day){
   const a = h.id, b = normalizeTaskName(h.name);
   return day.tasks.some(t => t.done && t.text && (normalizeTaskName(t.text) === a || normalizeTaskName(t.text) === b));
 }
+function daySlipIds(day){ return (day && Array.isArray(day.slips)) ? day.slips : []; }
+
+// an avoid habit set to start ticked, on a day that setting covers
+function autoTickOn(h, key){
+  return !!(h && h.startTicked && h.kind === 'avoid' && key >= h.startTicked &&
+    key <= getTodayKey() && habitInRange(h, key) && habitDue(h, key));
+}
+
 function habitDoneOn(h, key, data){
   const day = (data || loadData())[key];
+  if (autoTickOn(h, key)) return !daySlipIds(day).includes(h.id);
   return dayHabitIds(day).includes(h.id) || legacyTaskDone(h, day);
 }
 
@@ -120,7 +134,13 @@ function setHabitTick(id, key, on, fromHobby){
   const data = loadData();
   const day = data[key] || (data[key] = { tasks: [] });
   const ids = new Set(dayHabitIds(day));
-  if (on) ids.add(id); else ids.delete(id);
+  if (h && autoTickOn(h, key)) {
+    // starts-ticked day: unticking records a slip, ticking clears it
+    const slips = new Set(daySlipIds(day));
+    if (on) slips.delete(id); else slips.add(id);
+    if (slips.size) day.slips = [...slips]; else delete day.slips;
+    ids.delete(id);
+  } else if (on) ids.add(id); else ids.delete(id);
   if (ids.size) day.habits = [...ids]; else delete day.habits;
   // unticking also clears an old-style task of the same name, or it would
   // still read as done
@@ -155,7 +175,7 @@ function dayCounts(key, data){
   const habits = [];
   if (key <= getTodayKey()) {
     allHabits().forEach(h => {
-      const ticked = ticks.includes(h.id);
+      const ticked = autoTickOn(h, key) ? !daySlipIds(day).includes(h.id) : ticks.includes(h.id);
       const inRange = habitInRange(h, key);
       if (!ticked && !(inRange && habitExpected(h, key))) return;
       habits.push({ h, done: ticked || (inRange && legacyTaskDone(h, day)) });
@@ -174,6 +194,11 @@ function habitDays(h, data){
   data = data || loadData();
   const set = new Set();
   Object.keys(data).forEach(k => { if (habitDoneOn(h, k, data)) set.add(k); });
+  // starts-ticked days count even if nothing else was saved that day
+  if (h.startTicked && h.kind === 'avoid') {
+    const today = getTodayKey();
+    for (let k = h.startTicked; k <= today; k = addDaysKey(k, 1)) if (habitDoneOn(h, k, data)) set.add(k);
+  }
   return set;
 }
 
@@ -515,6 +540,11 @@ function renderHabitEditor(body){
         <button class="streak-unit${h.kind !== 'avoid' ? ' active' : ''}" onclick="setHabitKind(${i},'do')">Do</button>
         <button class="streak-unit${h.kind === 'avoid' ? ' active' : ''}" onclick="setHabitKind(${i},'avoid')">Avoid</button>
       </div>
+      ${h.kind === 'avoid' ? `<div class="streak-unit-row">
+        <span class="streak-unit-label">Each day</span>
+        <button class="streak-unit${!h.startTicked ? ' active' : ''}" onclick="setStartTicked(${i},false)">Blank</button>
+        <button class="streak-unit${h.startTicked ? ' active' : ''}" onclick="setStartTicked(${i},true)">Starts ticked</button>
+      </div>` : ''}
       <select class="streak-select habit-sched" onchange="setHabitSchedule(${i}, this.value)">
         ${HABIT_SCHEDULE_OPTIONS.map(([v,l]) => `<option value="${v}"${v === scheduleCode(sch) ? ' selected' : ''}>${l}</option>`).join('')}
       </select>
@@ -533,7 +563,7 @@ function renderHabitEditor(body){
         onkeydown="if(event.key==='Enter'){event.preventDefault();addHabit();}"/>
       <button class="btn btn-add" onclick="addHabit()">Add</button>
     </div>
-    <div class="habit-hint">Avoid habits get ticked too — the tick means you held the line that day.</div>`;
+    <div class="habit-hint">Avoid habits get ticked too — the tick means you held the line that day. Set one to start ticked and you only untick it on a slip.</div>`;
 }
 
 function editHabit(i, fn){
@@ -551,7 +581,37 @@ function renameHabit(i, v){
   if (!name) return renderHabits();
   editHabit(i, h => { h.name = name; });
 }
-function setHabitKind(i, kind){ editHabit(i, h => { h.kind = kind; }); }
+function setHabitKind(i, kind){ editHabit(i, h => { if (kind !== 'avoid') endStartTicked(h); h.kind = kind; }); }
+
+// Switched on: from today. Switched off: the days it covered keep reading as
+// they did — every auto-ticked day becomes a real tick, slips become blanks.
+function endStartTicked(h){
+  if (!h.startTicked) return;
+  const data = loadData();
+  const today = getTodayKey();
+  for (let k = h.startTicked; k <= today; k = addDaysKey(k, 1)) {
+    const covered = autoTickOn(h, k);
+    const day = data[k];
+    const slipped = daySlipIds(day).includes(h.id);
+    if (day && slipped) {
+      day.slips = day.slips.filter(x => x !== h.id);
+      if (!day.slips.length) delete day.slips;
+    }
+    if (covered && !slipped) {
+      const d = data[k] || (data[k] = { tasks: [] });
+      const ids = new Set(dayHabitIds(d)); ids.add(h.id); d.habits = [...ids];
+    }
+  }
+  saveData(data);
+  delete h.startTicked;
+}
+function setStartTicked(i, on){
+  editHabit(i, h => {
+    if (on && !h.startTicked) h.startTicked = getTodayKey();
+    if (!on) endStartTicked(h);
+  });
+  renderToday();
+}
 function setHabitSchedule(i, code){
   editHabit(i, h => {
     const prev = habitSch(h);
